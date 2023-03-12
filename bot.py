@@ -12,17 +12,16 @@ from Crypto.Random import get_random_bytes
 
 class Bot:
     bot = None
-    id_list = []  # user to send news to
     token = ""
     user = ""
     password = ""
-    day = []
-    oldDB = []
+    day = {}
+    oldDB = {}
     register = None
     db = None
     __course = ""
     __section = ""
-    __key = "" # used to crypt and decrypt passwords
+    __key = ""      # used to crypt and decrypt passwords
 	
     def __init__(self):
         # create bot
@@ -39,6 +38,41 @@ class Bot:
         schedule.every(30).minutes.do(self.updateDB)
         schedule.every().day.at("07:00").do(self.newsletter)
         threading.Thread(target=self.handle_messages).start()
+
+        self.db.connect()
+
+        courses = self.db.query("SELECT course FROM users_login;")
+        sections = self.db.query("SELECT section FROM users_login;")
+
+        for self.__course in courses:
+            for self.__section in sections:
+                # create the key of the course if the course's key doesn't exists
+                try:
+                    temp = self.oldDB[self.__course]
+                except KeyError as ke:
+                    self.oldDB[self.__course] = {}
+                
+                try:
+                    temp = self.day[self.__course]
+                except KeyError as ke:
+                    self.day[self.__course] = {}
+
+
+                section_dict = self.oldDB[self.__course]
+                section_dict_day = self.day[self.__course]
+
+                section_dict[self.__section] = []
+                section_dict_day[self.__section] = []
+
+                self.oldDB[self.__course] = section_dict
+                self.day[self.__course] = section_dict_day
+
+                # update db of the new course
+                # self.day[self.__course][self.__section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+                # self.oldDB[self.__course][self.__section] = self.register.requestGeop()
+                self.updateDB()
+
+        self.db.close()
 
 
     def start(self):
@@ -59,13 +93,14 @@ class Bot:
         threading.Thread(target=self.delete_msg, args=[message]).start()
 
         self.register.set_credential(email, psw)
-        self.updateDB()     # updates oldDB variable
+        
+        res = self.register.requestGeop()
 
-        if (self.oldDB == self.register.CONNECTION_ERROR) or (self.oldDB == self.register.ERROR):
+        if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
             self.bot.send_message(message.chat.id, "Errore nella configurazione nell'account. Per riprovare esegui il comando /start\n In caso di errore persistente contattta gli admin")
             return
 
-        if(self.oldDB == self.register.WRONG_PSW):
+        if(res == self.register.WRONG_PSW):
             self.bot.send_message(message.chat.id, "Account non configurato: credenziali errate.\nPer riprovare esegui il comando /start")
             return
 
@@ -94,8 +129,34 @@ class Bot:
         # if user does not exists in the "user_newsletter" table then insert it
         if not self.user_already_exists_in('users_newsletter', user_id):
             self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
+
+        # create the key of the course if the course's key doesn't exists
+        try:
+            temp = self.oldDB[self.__course]
+        except KeyError as ke:
+            self.oldDB[self.__course] = {}
+        
+        try:
+            temp = self.day[self.__course]
+        except KeyError as ke:
+            self.day[self.__course] = {}
+
+
+        section_dict = self.oldDB[self.__course]
+        section_dict_day = self.day[self.__course]
+
+        section_dict[self.__section] = {}
+        section_dict_day[self.__section] = {}
+
+        self.oldDB[self.__course] = section_dict
+        self.day[self.__course] = section_dict_day
+
+        # update db of the new course
+        self.day[self.__course][self.__section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+        self.oldDB[self.__course][self.__section] = self.register.requestGeop()
         
         self.db.close()
+        
         return
     
     
@@ -150,6 +211,7 @@ class Bot:
             
             self.bot.reply_to(message, help_msg)
 
+
         @self.bot.message_handler(commands=['start'])
         def send_welcome(message):
             self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard())
@@ -163,7 +225,6 @@ class Bot:
                 self.set_section(call.data)
                 
                 user_id = call.message.chat.id
-
                 if self.there_is_a_user_configured_for(self.__course):
 
                     self.save_user_info(user_id, login_credentials=False)
@@ -187,108 +248,84 @@ class Bot:
             user_id = message.from_user.id
             
             self.db.connect()
-
-            res = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id])
-            if res == None:
-                self.send_configuration_message()
+            if not self.is_user_registered(user_id):
+                self.send_configuration_message(user_id)
                 self.db.close()
                 return      
                   
-            user_course, user_section = res[0], res[1]
-
-            res = self.db.query("SELECT email, psw FROM users_login WHERE course=? AND section=?", [user_course, user_section])
-            if res == None:
-                self.send_configuration_message()
-                self.db.close()
-                return
-            
-            self.user, self.password = res[0], res[1]
-            self.password = self.decrypt_message(self.__key, self.password)
-            
-            self.register.set_credential(self.user, self.password)
-            self.updateDB(just_today=True)
-
+            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id])
             self.db.close()
 
-            self.bot_print(self.day, user_id)
+            today_lessons = self.day[user_course][user_section]
+            if today_lessons == []:
+                self.bot.send_message(user_id, "Nessuna lezione programmata per oggi")
+                return
+
+            self.bot_print(today_lessons, user_id)
+
 
         @self.bot.message_handler(commands=['week'])
         def handle_week(message):
             user_id = message.from_user.id
             
             self.db.connect()
-
-            res = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id])
-            if res == None:
-                self.send_configuration_message(user_id)
-                self.db.close()
-                return
-                  
-            user_course, user_section = res[0], res[1]
-
-            res = self.db.query("SELECT email, psw FROM users_login WHERE course=? AND section=?", [user_course, user_section])
-            if res == None:
+            if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
                 self.db.close()
                 return
             
-            self.user, self.password = res[0], res[1]
-            self.password = self.decrypt_message(self.__key, self.password)
-
-            self.register.set_credential(self.user, self.password)
-            self.updateDB()
-
+            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id])
             self.db.close()
 
-            self.bot_print(self.oldDB, user_id)
+            week_lessons = self.oldDB[user_course][user_section]
+            if week_lessons == []:
+                self.bot.send_message(user_id, "Nessuna lezione programmata per i prossimi 7 giorni")
+                return
+
+            self.bot_print(week_lessons, user_id)
+
 
         @self.bot.message_handler(commands=['news'])
         def echo_news(message):
             user_id = message.from_user.id
             self.db.connect()
 
-            res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id])
-            if res == None:
+            if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
                 self.db.close()
                 return
             
             # no need to check if the user is not present, because it is automatically inserted into the db during the config stage
             self.db.query("UPDATE users_newsletter SET can_send_news = 1 WHERE id = ?;", [user_id])
+            self.bot.send_message(user_id, "Riceverai una notifica sulla lezione del giorno ogni giorno alle 7:00")
 
             self.db.close()
 
-        try:    
+        # self.bot.polling()
+
+        try:
             self.bot.polling()
         except Exception as e:
             print(e)
             print("Exception occured, restarting the function")
             sleep(5)
-            threading.Thread(target=self.handle_messages).start()
+            self.handle_messages()
             return
 
 
     def newsletter(self):
-
-        courses = self.get_courses()
         self.db.connect()
+
+        courses = self.db.query("SELECT course FROM users_login;")
+        sections = self.db.query("SELECT section FROM users_login;")
 
         # per ogni corso, primo e secondo anno, sezioni A e B
         for course in courses:
-            for year in {1, 2}:
-                for section in {"A", "B"}:
-                    login_user = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=? and year=?;", [course, section, year])
-                    if login_user == None: continue
-                    users = self.db.query("SELECT id FROM users_newsletter WHERE course=? and can_send_news=1 and section=? and year=?;", [course, section, year])
+            for section in sections:
 
-                    self.user, self.password = login_user[0], login_user[1]
-                    self.password = self.decrypt_message(self.__key, self.password)
-
-                    self.register.set_credential(self.user, self.password)
-                    self.updateDB(just_today=True)
-
-                    for id in users:
-                        self.bot_print(self.day, int(id))
+                users = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND section=?;", [course, section])
+                for user_id in users:
+                    self.bot_print(self.day[course][section], int(user_id))
             print(f"Sent news to {course} course")
             
         self.db.close()
@@ -302,10 +339,29 @@ class Bot:
 
 
     def updateDB(self, just_today=False):
-        if not just_today:
-            newDB = self.register.requestGeop()
-            self.oldDB = newDB
-        self.day = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+        self.db.connect()
+
+        for course in self.oldDB.keys():
+            for section in self.oldDB[course]:
+
+                res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=?", [course, section])
+                if res == None: continue
+
+                email, psw = res[0], res[1]
+                psw = self.decrypt_message(self.__key, psw)
+                self.register.set_credential(email, psw)
+
+                if not just_today:
+                    newDB = self.register.requestGeop()
+                    self.oldDB[course][section] = newDB
+
+                res = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+                if res == self.register.ERROR or res == self.register.CONNECTION_ERROR:
+                    res = ""
+
+                self.day[course][section] = res
+
+        self.db.close()
 
     # id: user to send the message to
     def bot_print(self, lessons, id):
@@ -363,9 +419,13 @@ class Bot:
         
         self.db.close()
         return True
+    
+    def is_user_registered(self, user_id):
+        res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id])
+        return res != None
         
     def send_configuration_message(self, user_id):
-        self.bot.send_message(user_id, "Configura il tuo account con il comando /start per usare i comandi")
+        self.bot.send_message(user_id, "Configura il tuo account con il comando /start per usare il bot")
 
     def delete_msg(self, message):
         sleep(10)
