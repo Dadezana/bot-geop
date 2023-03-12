@@ -2,3 +2,4 @@ pycryptodome
 requests
 schedule
 requests
+telebot
