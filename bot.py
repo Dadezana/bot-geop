@@ -44,6 +44,10 @@ class Bot:
         courses = self.db.query("SELECT course FROM users_login;")
         sections = self.db.query("SELECT section FROM users_login;")
 
+        if courses == None:
+            courses = []
+            sections = [] 
+
         for self.__course in courses:
             for self.__section in sections:
                 # create the key of the course if the course's key doesn't exists
@@ -68,8 +72,6 @@ class Bot:
                 self.day[self.__course] = section_dict_day
 
                 # update db of the new course
-                # self.day[self.__course][self.__section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
-                # self.oldDB[self.__course][self.__section] = self.register.requestGeop()
                 self.updateDB()
 
         self.db.close()
