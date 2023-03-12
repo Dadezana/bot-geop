@@ -3,7 +3,6 @@ from datetime import date, timedelta
 from termcolor import colored
 import calendar
 from utils import *
-from bs4 import BeautifulSoup
 
 
 class Register:
@@ -25,14 +24,6 @@ class Register:
         self.user = user
         self.psw = psw
         self.session = Session()
-
-
-    def get_user_course(self):
-        course_url = self.site + "/geopcfp2/ajax/page/voti_alunno.asp?1=1&ajax_target=DIVContenuto&ajax_tipotarget=voti_alunno&z=1677853536529"
-        html = self.session.get(course_url).text
-        bs = BeautifulSoup(html, 'html.parser')
-        h3 = bs.find("h3", {"class": "panel-title"}).get_text().split(" - ")[1]
-        return h3
         
 
     # Request lessons to geop and return a db containing the lessons processed by the function "extract_info()"
