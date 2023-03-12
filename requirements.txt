@@ -1,0 +1,4 @@
+pycryptodome
+requests
+schedule
+requests
