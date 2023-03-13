@@ -21,7 +21,7 @@ class Bot:
     db = None
     __course = ""
     __section = ""
-    __key = ""      # used to crypt and decrypt passwords
+    __key = b""      # used to crypt and decrypt passwords
 	
     def __init__(self):
         # create bot
@@ -180,12 +180,16 @@ class Bot:
          
         courses = self.get_courses()
 
-        #! The number of courses must be even 
-        for i in range(0, len(courses)-1, 2):   # i add 2 buttons in one call, otherwise every button is displayed in a single row
-            keyboard.add(
-                InlineKeyboardButton(f'{courses[i]}', callback_data=f'{courses[i]}'),
-                InlineKeyboardButton(f'{courses[i+1]}', callback_data=f'{courses[i+1]}')
-            )        
+        for i in range(0, len(courses), 2):   # i add 2 buttons in one call, otherwise every button is displayed in a single row
+            try:
+                keyboard.add(
+                    InlineKeyboardButton(f'{courses[i]}', callback_data=f'{courses[i]}'),
+                    InlineKeyboardButton(f'{courses[i+1]}', callback_data=f'{courses[i+1]}')
+                )
+            except IndexError as ie:
+                keyboard.add(
+                    InlineKeyboardButton(f'{courses[i]}', callback_data=f'{courses[i]}')
+                )
         return keyboard
     
     def create_section_keyboard(self):
