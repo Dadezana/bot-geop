@@ -24,15 +24,18 @@ class DB:
         self.cur.execute("CREATE TABLE IF NOT EXISTS users_newsletter(id, course, section, can_send_news)")
     
     def query(self, query, values=[]):
-        res = self.cur.execute(query, values)
+        self.res = self.cur.execute(query, values)
 
-        if "SELECT" in query.upper():
-            return res.fetchone()      # result of the query
-
-        elif "INSERT" in query.upper() or "UPDATE" in query.upper():
+        if "INSERT" in query.upper() or "UPDATE" in query.upper():
             self.conn.commit()
 
-        return None
+        return self.res    # result of the query
 
     def close(self):
         self.conn.close()
+
+    def fetch(self):
+        return self.res.fetchone()
+    
+    def fetchall(self):
+        return self.res.fetchall()

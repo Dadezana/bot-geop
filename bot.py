@@ -41,10 +41,18 @@ class Bot:
 
         self.db.connect()
 
-        courses = self.db.query("SELECT course FROM users_login;")
-        sections = self.db.query("SELECT section FROM users_login;")
+        t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
+        t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
 
-        if courses == None:
+        courses = []
+        for c in t_courses:
+            courses.append(c[0])
+
+        sections = []
+        for s in t_sections:
+            sections.append(s[0])
+
+        if len(courses) == 0:
             courses = []
             sections = [] 
 
@@ -259,7 +267,7 @@ class Bot:
                 self.db.close()
                 return      
                   
-            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id])
+            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
             self.db.close()
 
             today_lessons = self.day[user_course][user_section]
@@ -280,7 +288,7 @@ class Bot:
                 self.db.close()
                 return
             
-            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id])
+            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
             self.db.close()
 
             week_lessons = self.oldDB[user_course][user_section]
@@ -322,15 +330,27 @@ class Bot:
     def newsletter(self):
         self.db.connect()
 
-        courses = self.db.query("SELECT course FROM users_login;")
-        sections = self.db.query("SELECT section FROM users_login;")
+        t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
+        t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
+
+        courses = []
+        for c in t_courses:
+            courses.append(c[0])
+
+        sections = []
+        for s in t_sections:
+            sections.append(s[0])
 
         # per ogni corso, primo e secondo anno, sezioni A e B
         for course in courses:
             for section in sections:
 
-                users = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND section=?;", [course, section])
-                for user_id in users:
+                t_user_id = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND section=?;", [course, section]).fetchall()
+                users_id = []
+                for c in t_user_id:
+                    users_id.append(c[0])
+
+                for user_id in users_id:
                     self.bot_print(self.day[course][section], int(user_id))
             print(f"Sent news to {course} course")
             
@@ -350,7 +370,7 @@ class Bot:
         for course in self.oldDB.keys():
             for section in self.oldDB[course]:
 
-                res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=?", [course, section])
+                res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=?", [course, section]).fetchone()
                 if res == None: continue
 
                 email, psw = res[0], res[1]
@@ -416,7 +436,7 @@ class Bot:
 
     def there_is_a_user_configured_for(self, course):
         self.db.connect()
-        res = self.db.query("SELECT * FROM users_login WHERE course=?;", [course,])
+        res = self.db.query("SELECT * FROM users_login WHERE course=?;", [course,]).fetchone()
 
         # if there isn't an account configured for that course, ask for the credentials
         if res == None:
@@ -427,7 +447,7 @@ class Bot:
         return True
     
     def is_user_registered(self, user_id):
-        res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id])
+        res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id]).fetchone()
         return res != None
         
     def send_configuration_message(self, user_id):
