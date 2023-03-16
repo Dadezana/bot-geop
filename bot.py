@@ -221,7 +221,8 @@ class Bot:
             "/help Visualizza questa guida\n" + \
             "/day  Lezione più recente\n" + \
             "/week  Lezione da oggi + 7gg\n" + \
-            "/news Notifica alle 7 sulla lezione del giorno"
+            "/news Notifica alle 7 sulla lezione del giorno\n" + \
+            "/unews Non verrà più ricevuto un messaggio sulla lezione del giorno"
             
             self.bot.reply_to(message, help_msg)
 
@@ -315,7 +316,19 @@ class Bot:
 
             self.db.close()
 
-        # self.bot.polling()
+        @self.bot.message_handler(commands=['unews'])
+        def unews(message):
+            user_id = message.from_user.id
+            self.db.connect()
+
+            if not self.is_user_registered(user_id):
+                self.send_configuration_message(user_id)
+                self.db.close()
+                return
+            
+            self.db.query("UPDATE users_newsletter SET can_send_news = 0 WHERE id = ?;", [user_id])
+            self.bot.send_message(user_id, "Non riceverai più una notifica ogni giorno alle 7:00")
+
 
         try:
             self.bot.polling()
