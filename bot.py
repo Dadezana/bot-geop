@@ -25,7 +25,7 @@ class Bot:
 	
     def __init__(self):
         # create bot
-        self.token = os.environ['testbot_TOKEN']
+        self.token = os.environ['TOKEN']
 
         self.register = Register(self.user, self.password)
         self.bot = telebot.TeleBot(self.token)
