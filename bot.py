@@ -25,7 +25,7 @@ class Bot:
 	
     def __init__(self):
         # create bot
-        self.token = os.environ['TOKEN']
+        self.token = os.environ['testbot_TOKEN']
 
         self.register = Register(self.user, self.password)
         self.bot = telebot.TeleBot(self.token)
@@ -373,7 +373,7 @@ class Bot:
 
     # Funzione per verificare se le informazioni dell'utente sono già state fornite
     def user_already_exists_in(self, table, user_id):
-        res = self.db.query(f"SELECT * FROM {table} WHERE id=?;", [user_id,])
+        res = self.db.query(f"SELECT * FROM {table} WHERE id=?;", [user_id,]).fetchone()
         return res != None
 
 
