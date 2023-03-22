@@ -355,16 +355,19 @@ class Bot:
             sections.append(s[0])
 
         # per ogni corso, primo e secondo anno, sezioni A e B
-        for course in courses:
-            for section in sections:
+        for i in range(len(courses)):
+            
+            course = courses[i]
+            section = sections[i]
 
-                t_user_id = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND section=?;", [course, section]).fetchall()
-                users_id = []
-                for c in t_user_id:
-                    users_id.append(c[0])
+            t_user_id = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND section=?;", [course, section]).fetchall()
+            users_id = []
+            for c in t_user_id:
+                users_id.append(c[0])
 
-                for user_id in users_id:
-                    self.bot_print(self.day[course][section], int(user_id))
+            for user_id in users_id:
+                self.bot_print(self.day[course][section], int(user_id))
+
             print(f"Sent news to {course} course")
             
         self.db.close()
