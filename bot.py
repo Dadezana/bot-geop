@@ -407,14 +407,17 @@ class Bot:
 
     # id: user to send the message to
     def bot_print(self, lessons, id):
-
-        lessons.sort(
-            key=lambda l: (
-                int(l["day"][0]), 
-                int(l["day"][1]), 
-                int(l["day"][2])
+        try:
+            lessons.sort(
+                key=lambda l: (
+                    int(l["day"][0]), 
+                    int(l["day"][1]), 
+                    int(l["day"][2])
+                )
             )
-        )
+        except AttributeError as ae:
+            print(ae)
+            return
 
         for l in lessons:
             canPrintDay = True
