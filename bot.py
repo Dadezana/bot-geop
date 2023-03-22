@@ -240,7 +240,7 @@ class Bot:
                 self.set_section(call.data)
                 
                 user_id = call.message.chat.id
-                if self.there_is_a_user_configured_for(self.__course):
+                if self.there_is_a_user_configured_for(self.__course, self.__section):
 
                     self.save_user_info(user_id, login_credentials=False)
                     self.bot.send_message(user_id, "Account configurato!")
@@ -450,9 +450,9 @@ class Bot:
         self.__section = section
 
 
-    def there_is_a_user_configured_for(self, course):
+    def there_is_a_user_configured_for(self, course, section):
         self.db.connect()
-        res = self.db.query("SELECT * FROM users_login WHERE course=?;", [course,]).fetchone()
+        res = self.db.query("SELECT * FROM users_login WHERE course=? and section=?;", [course,section]).fetchone()
 
         # if there isn't an account configured for that course, ask for the credentials
         if res == None:
