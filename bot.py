@@ -25,7 +25,7 @@ class Bot:
 	
     def __init__(self):
         # create bot
-        self.token = os.environ['TOKEN']
+        self.token = os.environ['testbot_TOKEN']
 
         self.register = Register(self.user, self.password)
         self.bot = telebot.TeleBot(self.token)
@@ -125,19 +125,19 @@ class Bot:
 
         if login_credentials:
             # if user does not already exists in the db then insert it
-            if self.user_already_exists_in('users_login', user_id):
-                self.db.query(
-                    'UPDATE users_login SET course=?, section=? WHERE id=?;',
-                    [self.__course, self.__section, user_id]
-                )
-            else:
+            if not self.user_already_exists_in('users_login', user_id):
                 self.db.query(
                     'INSERT INTO users_login VALUES (?, ?, ?, ?, ?);', 
                     (user_id, email, psw, self.__course, self.__section)
                 )
 
         # if user does not exists in the "user_newsletter" table then insert it
-        if not self.user_already_exists_in('users_newsletter', user_id):
+        # update their course info otherwise
+        if self.user_already_exists_in('users_newsletter', user_id):
+            self.db.query('UPDATE users_newsletter SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
+            self.db.query('UPDATE users_login SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
+
+        else:
             self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
 
         # create the key of the course if the course's key doesn't exists
@@ -246,6 +246,10 @@ class Bot:
                     self.bot.send_message(user_id, "Account configurato!")
                     self.db.close()
                     return
+                
+                # user has already configured his credential. He just wants to switch course
+                if self.user_already_exists_in('users_login', call.message.chat.id):
+                    self.save_user_info(user_id, login_credentials=False)   # credentials in users_login are updated if necessary
             
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
