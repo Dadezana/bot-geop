@@ -33,13 +33,13 @@ class Bot:
         self.__key = os.environ["key"].encode()
 
         self.db = DB()
+        self.db.connect()
 
         # scheduling newsletter and updates of lessons
         schedule.every(30).minutes.do(self.updateDB)
         schedule.every().day.at("07:00").do(self.newsletter)
         threading.Thread(target=self.handle_messages).start()
 
-        self.db.connect()
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
         t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
@@ -82,8 +82,6 @@ class Bot:
                 # update db of the new course
                 self.updateDB()
 
-        self.db.close()
-
 
     def start(self):
         while True:
@@ -121,8 +119,7 @@ class Bot:
 
     # Funzione per salvare le informazioni dell'utente nel database
     def save_user_info(self, user_id, email="", psw="", login_credentials=True):
-        self.db.connect()
-
+        
         if login_credentials:
             # if user does not already exists in the db then insert it
             if not self.user_already_exists_in('users_login', user_id):
@@ -164,8 +161,6 @@ class Bot:
         # update db of the new course
         self.day[self.__course][self.__section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
         self.oldDB[self.__course][self.__section] = self.register.requestGeop()
-        
-        self.db.close()
         
         return
     
@@ -211,7 +206,6 @@ class Bot:
         return keyboard
                 
 
-
     def handle_messages(self):
 
         @self.bot.message_handler(commands=['help'])
@@ -244,7 +238,7 @@ class Bot:
 
                     self.save_user_info(user_id, login_credentials=False)
                     self.bot.send_message(user_id, "Account configurato!")
-                    self.db.close()
+                    
                     return
                 
                 # user has already configured his credential. He just wants to switch course
@@ -254,7 +248,6 @@ class Bot:
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
                     
-
             else:
                 self.set_course(call.data)
                 self.bot.send_message(call.message.chat.id, "Seleziona anno e sezione", reply_markup=self.create_section_keyboard())
@@ -266,14 +259,12 @@ class Bot:
         def handle_day(message):
             user_id = message.from_user.id
             
-            self.db.connect()
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
-                self.db.close()
                 return      
                   
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
-            self.db.close()
+            
 
             today_lessons = self.day[user_course][user_section]
             if today_lessons == []:
@@ -287,14 +278,11 @@ class Bot:
         def handle_week(message):
             user_id = message.from_user.id
             
-            self.db.connect()
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
-                self.db.close()
                 return
             
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
-            self.db.close()
 
             week_lessons = self.oldDB[user_course][user_section]
             if week_lessons == []:
@@ -307,27 +295,24 @@ class Bot:
         @self.bot.message_handler(commands=['news'])
         def echo_news(message):
             user_id = message.from_user.id
-            self.db.connect()
+            
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
-                self.db.close()
                 return
             
             # no need to check if the user is not present, because it is automatically inserted into the db during the config stage
             self.db.query("UPDATE users_newsletter SET can_send_news = 1 WHERE id = ?;", [user_id])
             self.bot.send_message(user_id, "Riceverai una notifica sulla lezione del giorno ogni giorno alle 7:00")
 
-            self.db.close()
 
         @self.bot.message_handler(commands=['unews'])
         def unews(message):
             user_id = message.from_user.id
-            self.db.connect()
+            
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
-                self.db.close()
                 return
             
             self.db.query("UPDATE users_newsletter SET can_send_news = 0 WHERE id = ?;", [user_id])
@@ -345,7 +330,7 @@ class Bot:
 
 
     def newsletter(self):
-        self.db.connect()
+        
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
         t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
@@ -374,7 +359,7 @@ class Bot:
 
             print(f"Sent news to {course} course")
             
-        self.db.close()
+        
 
         return
 
@@ -385,7 +370,7 @@ class Bot:
 
 
     def updateDB(self, just_today=False):
-        self.db.connect()
+        
 
         for course in self.oldDB.keys():
             for section in self.oldDB[course]:
@@ -407,7 +392,7 @@ class Bot:
 
                 self.day[course][section] = res
 
-        self.db.close()
+        
 
     # id: user to send the message to
     def bot_print(self, lessons, id):
@@ -463,13 +448,13 @@ class Bot:
 
         # if there isn't an account configured for that course, ask for the credentials
         if res == None:
-            self.db.close()
             return False
         
-        self.db.close()
+        
         return True
     
     def is_user_registered(self, user_id):
+        self.db.connect()
         res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id]).fetchone()
         return res != None
         
