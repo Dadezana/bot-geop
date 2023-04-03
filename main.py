@@ -8,7 +8,12 @@ def main():
     # bot request
     bot = Bot()
     print(colored("[+] Bot started", "green"))
-    bot.start()
+
+    try:
+        bot.start()
+    except KeyboardInterrupt:
+        print(colored("[+] Bot terminated", "red"))
+        exit(0)
     
 
 
