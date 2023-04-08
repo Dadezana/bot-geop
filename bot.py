@@ -25,7 +25,7 @@ class Bot:
 	
     def __init__(self):
         # create bot
-        self.token = os.environ['testbot_TOKEN']
+        self.token = os.environ['TOKEN']
 
         self.register = Register(self.user, self.password)
         self.bot = telebot.TeleBot(self.token)
@@ -401,7 +401,9 @@ class Bot:
                 key=lambda l: (
                     int(l["day"][0]), 
                     int(l["day"][1]), 
-                    int(l["day"][2])
+                    int(l["day"][2]),
+                    int(l["start"].split(":")[0]),
+                    int(l["start"].split(":")[1]),
                 )
             )
         except AttributeError as ae:
