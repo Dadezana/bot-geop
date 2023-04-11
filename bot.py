@@ -371,6 +371,7 @@ class Bot:
 
     def updateDB(self, just_today=False):
         
+        self.db.connect()
 
         for course in self.oldDB.keys():
             for section in self.oldDB[course]:
