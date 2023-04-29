@@ -102,10 +102,11 @@ class Bot:
 
         self.register.set_credential(email, psw)
         
+        self.db.connect()
         res = self.register.requestGeop()
 
         if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
-            self.bot.send_message(message.chat.id, "Errore nella configurazione nell'account. Per riprovare esegui il comando /start\n In caso di errore persistente contattta gli admin")
+            self.bot.send_message(message.chat.id, "Errore nella configurazione nell'account. Per riprovare esegui il comando /start\n In caso di errore persistente contattta gli admin (/credits)")
             return
 
         if(res == self.register.WRONG_PSW):
@@ -114,7 +115,7 @@ class Bot:
 
         psw = self.encrypt_message(self.__key, psw)
         self.save_user_info(message.chat.id, email, psw)
-        self.bot.send_message(message.chat.id, 'Account configurato con successo!')
+        self.bot.send_message(message.chat.id, 'Account configurato con successo!\nPer ricevere una notifica ogni giorno alle 7 esegui il comando /news')
 
 
     # Funzione per salvare le informazioni dell'utente nel database
@@ -216,7 +217,8 @@ class Bot:
             "/day  Lezione più recente\n" + \
             "/week  Lezione da oggi + 7gg\n" + \
             "/news Notifica alle 7 sulla lezione del giorno\n" + \
-            "/unews Non verrà più ricevuto un messaggio sulla lezione del giorno"
+            "/unews Non verrà più ricevuto un messaggio sulla lezione del giorno\n" + \
+            "/credits Contatti, codice sorgente e info sviluppatori"
             
             self.bot.reply_to(message, help_msg)
 
@@ -237,7 +239,7 @@ class Bot:
                 if self.there_is_a_user_configured_for(self.__course, self.__section):
 
                     self.save_user_info(user_id, login_credentials=False)
-                    self.bot.send_message(user_id, "Account configurato!")
+                    self.bot.send_message(user_id, "Account configurato!\nPer ricevere una notifica ogni giorno alle 7 esegui il comando /news")
                     
                     return
                 
@@ -317,7 +319,19 @@ class Bot:
             
             self.db.query("UPDATE users_newsletter SET can_send_news = 0 WHERE id = ?;", [user_id])
             self.bot.send_message(user_id, "Non riceverai più una notifica ogni giorno alle 7:00")
+            
+        @self.bot.message_handler(commands=['credits'])
+        def show_credits(message):
+            user_id = message.from_user.id
 
+            credits_msg = f"\
+            Creato e mantenuto da {os.environ['main_developer']}\
+            \n\nPer segnalazioni di bug o suggerimenti scrivere una mail a {os.environ['developer_email']} o un messaggio su Google Chat.\
+            \n\nIl codice sorgente è disponibile qui: https://github.com/Dadezana/bot-geop\
+            \n\n{os.environ['calendar_developer']} ha sviluppato l'integrazione con Google Calendar. \nÈ possibile usufruirne cliccando questo [link]({os.environ['link_calendar']}) o aggiungendo {os.environ['geop_calendar_email']} al vostro calendario\
+            "
+
+            self.bot.send_message(user_id, credits_msg, parse_mode='Markdown')
 
         try:
             self.bot.polling()
