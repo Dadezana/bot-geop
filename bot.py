@@ -345,6 +345,7 @@ class Bot:
 
     def newsletter(self):
         
+        self.db.connect()
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
         t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
@@ -374,7 +375,7 @@ class Bot:
             print(f"Sent news to {course} course")
             
         
-
+        self.db.close()
         return
 
     # Funzione per verificare se le informazioni dell'utente sono già state fornite
