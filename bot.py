@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import schedule
 import threading
 import os
@@ -132,11 +132,17 @@ class Bot:
         # if user does not exists in the "user_newsletter" table then insert it
         # update their course info otherwise
         if self.user_already_exists_in('users_newsletter', user_id):
+            
             self.db.query('UPDATE users_newsletter SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
             self.db.query('UPDATE users_login SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
+            with open("log.txt", "a") as log:
+                        log.write(f"[{user_id}] Info updated\n")
 
         else:
+            
             self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
+            with open("log.txt", "a") as log:
+                log.write(f"[{user_id}] User registered\n")
 
         # create the key of the course if the course's key doesn't exists
         try:
@@ -225,6 +231,9 @@ class Bot:
 
         @self.bot.message_handler(commands=['start'])
         def send_welcome(message):
+            with open("log.txt", "a") as log:
+                log.write(f"[{message.from_user.id}] Started the bot, choosing course...\n")
+
             self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard())
 
 
@@ -232,10 +241,14 @@ class Bot:
         def callback_handler(call):
 
             if call.data == "1A" or  call.data == "1B" or call.data == "2A" or call.data == "2B":
-
-                self.set_section(call.data)
                 
+
                 user_id = call.message.chat.id
+                self.set_section(call.data)
+
+                with open("log.txt", "a") as log:
+                    log.write(f"[{user_id}] Course: {self.__course} - {self.__section}\n")
+                
                 if self.there_is_a_user_configured_for(self.__course, self.__section):
 
                     self.save_user_info(user_id, login_credentials=False)
@@ -245,20 +258,24 @@ class Bot:
                 
                 # user has already configured his credential. He just wants to switch course
                 if self.user_already_exists_in('users_login', call.message.chat.id):
-                    self.save_user_info(user_id, login_credentials=False)   # credentials in users_login are updated if necessary
+                    self.save_user_info(user_id, login_credentials=False)               # credentials in users_login are updated if necessary
             
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
                     
             else:
                 self.set_course(call.data)
+
+                with open("log.txt", "a") as log:
+                    log.write(f"[{call.message.chat.id}] Choosing year and section...\n")
+
                 self.bot.send_message(call.message.chat.id, "Seleziona anno e sezione", reply_markup=self.create_section_keyboard())
 
             return
 
 
         @self.bot.message_handler(commands=['day'])
-        def handle_day(message):
+        def handle_day(message : telebot.types.Message):
             user_id = message.from_user.id
             
             if not self.is_user_registered(user_id):
@@ -266,7 +283,9 @@ class Bot:
                 return      
                   
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
-            
+
+            with open("log.txt", "a") as log:
+                log.write(f"[{user_id}] /day, {user_course} - {user_section}\n")
 
             today_lessons = self.day[user_course][user_section]
             if today_lessons == []:
@@ -286,6 +305,9 @@ class Bot:
             
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
+            with open("log.txt", "a") as log:
+                log.write(f"[{user_id}] /week, {user_course} - {user_section}\n")
+
             week_lessons = self.oldDB[user_course][user_section]
             if week_lessons == []:
                 self.bot.send_message(user_id, "Nessuna lezione programmata per i prossimi 7 giorni")
@@ -297,7 +319,9 @@ class Bot:
         @self.bot.message_handler(commands=['news'])
         def echo_news(message):
             user_id = message.from_user.id
-            
+
+            with open("log.txt", "a") as log:
+                log.write(f"[{user_id}] /news\n")
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
@@ -311,7 +335,9 @@ class Bot:
         @self.bot.message_handler(commands=['unews'])
         def unews(message):
             user_id = message.from_user.id
-            
+
+            with open("log.txt", "a") as log:
+                log.write(f"[{user_id}] /unewsn\n")
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
@@ -336,8 +362,13 @@ class Bot:
         try:
             self.bot.polling()
         except Exception as e:
-            print(e)
-            print("Exception occured, restarting the function")
+            print(e, end="")
+            print(", restarting the function")
+
+            with open("log.txt", "a") as log:
+                log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                log.write( e.with_traceback(None) + "\n")
+
             sleep(5)
             self.handle_messages()
             return
@@ -358,6 +389,8 @@ class Bot:
         for s in t_sections:
             sections.append(s[0])
 
+        f = open("log_newsletter.txt", "a")
+
         # per ogni corso, primo e secondo anno, sezioni A e B
         for i in range(len(courses)):
             
@@ -372,9 +405,10 @@ class Bot:
             for user_id in users_id:
                 self.bot_print(self.day[course][section], int(user_id))
 
-            print(f"Sent news to {course} course")
+            if self.day[course][section]:
+                f.write(f"[ {date.today()} ] Sent news to {course} course")
             
-        
+        f.close()
         self.db.close()
         return
 
