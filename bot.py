@@ -107,10 +107,14 @@ class Bot:
 
         if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
             self.bot.send_message(message.chat.id, "Errore nella configurazione nell'account. Per riprovare esegui il comando /start\n In caso di errore persistente contattta gli admin (/credits)")
+            with open("log.txt", "a") as f:
+                f.write(f"[{message.chat.id}] Errore nella configurazione")
             return
 
         if(res == self.register.WRONG_PSW):
             self.bot.send_message(message.chat.id, "Account non configurato: credenziali errate.\nPer riprovare esegui il comando /start")
+            with open("log.txt", "a") as f:
+                f.write(f"[{message.chat.id}] Credenziali errate")
             return
 
         psw = self.encrypt_message(self.__key, psw)
@@ -136,7 +140,7 @@ class Bot:
             self.db.query('UPDATE users_newsletter SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
             self.db.query('UPDATE users_login SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
             with open("log.txt", "a") as log:
-                        log.write(f"[{user_id}] Info updated\n")
+                log.write(f"[{user_id}] Info updated\n")
 
         else:
             
@@ -354,7 +358,6 @@ class Bot:
             Creato e mantenuto da {os.environ['main_developer']}\
             \n\nPer segnalazioni di bug o suggerimenti scrivere una mail a {os.environ['developer_email']} o un messaggio su Google Chat.\
             \n\nIl codice sorgente è disponibile qui: https://github.com/Dadezana/bot-geop\
-            \n\n{os.environ['calendar_developer']} ha sviluppato l'integrazione con Google Calendar. \nÈ possibile usufruirne cliccando questo [link]({os.environ['link_calendar']}) o aggiungendo {os.environ['geop_calendar_email']} al vostro calendario\
             "
 
             self.bot.send_message(user_id, credits_msg, parse_mode='Markdown')
@@ -406,7 +409,7 @@ class Bot:
                 self.bot_print(self.day[course][section], int(user_id))
 
             if self.day[course][section]:
-                f.write(f"[ {date.today()} ] Sent news to {course} course")
+                f.write(f"[ {date.today()} ] Sent news to {course} course\n")
             
         f.close()
         self.db.close()
