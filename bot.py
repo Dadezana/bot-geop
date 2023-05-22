@@ -22,7 +22,7 @@ class Bot:
     __course = ""
     __section = ""
     __key = b""      # used to crypt and decrypt passwords
-	
+
     def __init__(self):
         # create bot
         self.token = os.environ['TOKEN']
@@ -54,7 +54,7 @@ class Bot:
 
         if len(courses) == 0:
             courses = []
-            sections = [] 
+            sections = []
 
         for self.__course in courses:
             for self.__section in sections:
@@ -63,7 +63,7 @@ class Bot:
                     temp = self.oldDB[self.__course]
                 except KeyError as ke:
                     self.oldDB[self.__course] = {}
-                
+
                 try:
                     temp = self.day[self.__course]
                 except KeyError as ke:
@@ -101,20 +101,20 @@ class Bot:
         threading.Thread(target=self.delete_msg, args=[message]).start()
 
         self.register.set_credential(email, psw)
-        
+
         self.db.connect()
         res = self.register.requestGeop()
 
         if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
             self.bot.send_message(message.chat.id, "Errore nella configurazione nell'account. Per riprovare esegui il comando /start\n In caso di errore persistente contattta gli admin (/credits)")
             with open("log.txt", "a") as f:
-                f.write(f"[{message.chat.id}] Errore nella configurazione")
+                f.write(f"[{message.chat.id}] Errore nella configurazione\n")
             return
 
         if(res == self.register.WRONG_PSW):
             self.bot.send_message(message.chat.id, "Account non configurato: credenziali errate.\nPer riprovare esegui il comando /start")
             with open("log.txt", "a") as f:
-                f.write(f"[{message.chat.id}] Credenziali errate")
+                f.write(f"[{message.chat.id}] Credenziali errate\n")
             return
 
         psw = self.encrypt_message(self.__key, psw)
@@ -124,26 +124,26 @@ class Bot:
 
     # Funzione per salvare le informazioni dell'utente nel database
     def save_user_info(self, user_id, email="", psw="", login_credentials=True):
-        
+
         if login_credentials:
             # if user does not already exists in the db then insert it
             if not self.user_already_exists_in('users_login', user_id):
                 self.db.query(
-                    'INSERT INTO users_login VALUES (?, ?, ?, ?, ?);', 
+                    'INSERT INTO users_login VALUES (?, ?, ?, ?, ?);',
                     (user_id, email, psw, self.__course, self.__section)
                 )
 
         # if user does not exists in the "user_newsletter" table then insert it
         # update their course info otherwise
         if self.user_already_exists_in('users_newsletter', user_id):
-            
+
             self.db.query('UPDATE users_newsletter SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
             self.db.query('UPDATE users_login SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
             with open("log.txt", "a") as log:
                 log.write(f"[{user_id}] Info updated\n")
 
         else:
-            
+
             self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
             with open("log.txt", "a") as log:
                 log.write(f"[{user_id}] User registered\n")
@@ -153,7 +153,7 @@ class Bot:
             temp = self.oldDB[self.__course]
         except KeyError as ke:
             self.oldDB[self.__course] = {}
-        
+
         try:
             temp = self.day[self.__course]
         except KeyError as ke:
@@ -172,10 +172,10 @@ class Bot:
         # update db of the new course
         self.day[self.__course][self.__section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
         self.oldDB[self.__course][self.__section] = self.register.requestGeop()
-        
+
         return
-    
-    
+
+
     def get_courses(self):
         lines = []
         with open("courses.txt", "r") as file:
@@ -183,15 +183,15 @@ class Bot:
 
             for i in range(len(lines)):
                 lines[i] = lines[i].replace('\n', '')
-        
+
         return lines
- 
-           
+
+
     # Tastiera inline per la configurazione dell'account
     def create_courses_keyboard(self):
 
         keyboard = InlineKeyboardMarkup(row_width=2)
-         
+
         courses = self.get_courses()
 
         for i in range(0, len(courses), 2):   # i add 2 buttons in one call, otherwise every button is displayed in a single row
@@ -205,17 +205,17 @@ class Bot:
                     InlineKeyboardButton(f'{courses[i]}', callback_data=f'{courses[i]}')
                 )
         return keyboard
-    
+
     def create_section_keyboard(self):
         keyboard = InlineKeyboardMarkup(row_width=2)
 
         for sec in ["A","B"]:
             keyboard.add(
-                InlineKeyboardButton("1° anno, sez. "+sec, callback_data="1"+sec), 
+                InlineKeyboardButton("1° anno, sez. "+sec, callback_data="1"+sec),
                 InlineKeyboardButton("2° anno, sez. "+sec, callback_data="2"+sec)
             )
         return keyboard
-                
+
 
     def handle_messages(self):
 
@@ -229,7 +229,7 @@ class Bot:
             "/news Notifica alle 7 sulla lezione del giorno\n" + \
             "/unews Non verrà più ricevuto un messaggio sulla lezione del giorno\n" + \
             "/credits Contatti, codice sorgente e info sviluppatori"
-            
+
             self.bot.reply_to(message, help_msg)
 
 
@@ -245,28 +245,28 @@ class Bot:
         def callback_handler(call):
 
             if call.data == "1A" or  call.data == "1B" or call.data == "2A" or call.data == "2B":
-                
+
 
                 user_id = call.message.chat.id
                 self.set_section(call.data)
 
                 with open("log.txt", "a") as log:
                     log.write(f"[{user_id}] Course: {self.__course} - {self.__section}\n")
-                
+
                 if self.there_is_a_user_configured_for(self.__course, self.__section):
 
                     self.save_user_info(user_id, login_credentials=False)
                     self.bot.send_message(user_id, "Account configurato!\nPer ricevere una notifica ogni giorno alle 7 esegui il comando /news")
-                    
+
                     return
-                
+
                 # user has already configured his credential. He just wants to switch course
                 if self.user_already_exists_in('users_login', call.message.chat.id):
                     self.save_user_info(user_id, login_credentials=False)               # credentials in users_login are updated if necessary
-            
+
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
-                    
+
             else:
                 self.set_course(call.data)
 
@@ -281,11 +281,11 @@ class Bot:
         @self.bot.message_handler(commands=['day'])
         def handle_day(message : telebot.types.Message):
             user_id = message.from_user.id
-            
+
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
-                return      
-                  
+                return
+
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
             with open("log.txt", "a") as log:
@@ -302,11 +302,11 @@ class Bot:
         @self.bot.message_handler(commands=['week'])
         def handle_week(message):
             user_id = message.from_user.id
-            
+
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
                 return
-            
+
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
             with open("log.txt", "a") as log:
@@ -330,7 +330,7 @@ class Bot:
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
                 return
-            
+
             # no need to check if the user is not present, because it is automatically inserted into the db during the config stage
             self.db.query("UPDATE users_newsletter SET can_send_news = 1 WHERE id = ?;", [user_id])
             self.bot.send_message(user_id, "Riceverai una notifica sulla lezione del giorno ogni giorno alle 7:00")
@@ -341,15 +341,15 @@ class Bot:
             user_id = message.from_user.id
 
             with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] /unewsn\n")
+                log.write(f"[{user_id}] /unews\n")
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
                 return
-            
+
             self.db.query("UPDATE users_newsletter SET can_send_news = 0 WHERE id = ?;", [user_id])
             self.bot.send_message(user_id, "Non riceverai più una notifica ogni giorno alle 7:00")
-            
+
         @self.bot.message_handler(commands=['credits'])
         def show_credits(message):
             user_id = message.from_user.id
@@ -370,7 +370,7 @@ class Bot:
 
             with open("log.txt", "a") as log:
                 log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
-                log.write( e.with_traceback(None) + "\n")
+                log.write( str(e.with_traceback(None)) + "\n")
 
             sleep(5)
             self.handle_messages()
@@ -378,7 +378,7 @@ class Bot:
 
 
     def newsletter(self):
-        
+
         self.db.connect()
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
@@ -396,7 +396,7 @@ class Bot:
 
         # per ogni corso, primo e secondo anno, sezioni A e B
         for i in range(len(courses)):
-            
+
             course = courses[i]
             section = sections[i]
 
@@ -410,7 +410,7 @@ class Bot:
 
             if self.day[course][section]:
                 f.write(f"[ {date.today()} ] Sent news to {course} course\n")
-            
+
         f.close()
         self.db.close()
         return
@@ -422,7 +422,7 @@ class Bot:
 
 
     def updateDB(self, just_today=False):
-        
+
         self.db.connect()
 
         for course in self.oldDB.keys():
@@ -445,15 +445,15 @@ class Bot:
 
                 self.day[course][section] = res
 
-        
+
 
     # id: user to send the message to
     def bot_print(self, lessons, id):
         try:
             lessons.sort(
                 key=lambda l: (
-                    int(l["day"][0]), 
-                    int(l["day"][1]), 
+                    int(l["day"][0]),
+                    int(l["day"][1]),
                     int(l["day"][2]),
                     int(l["start"].split(":")[0]),
                     int(l["start"].split(":")[1]),
@@ -484,9 +484,18 @@ class Bot:
             docente = f"\n🧑‍🏫 | {teacher}"
             materia = f"\n📓 | {subject}" if not type_ == "esame" else  f"\n⚠️ | {subject}"
             stanza = f"\n🏢 | {room}"
-            msg = data + orario + docente + materia + stanza            
+            msg = data + orario + docente + materia + stanza
 
-            self.bot.send_message(id, msg, parse_mode='Markdown')
+            try:
+                self.bot.send_message(id, msg, parse_mode='Markdown')
+
+            except telebot.apihelper.ApiTelegramException as e:
+
+                with open("log.txt", "a") as f:
+                    f.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                    f.write(str(e.with_traceback(None)) + f" ({id})\n")
+                    f.flush()
+
         return
 
 
@@ -504,15 +513,15 @@ class Bot:
         # if there isn't an account configured for that course, ask for the credentials
         if res == None:
             return False
-        
-        
+
+
         return True
-    
+
     def is_user_registered(self, user_id):
         self.db.connect()
         res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id]).fetchone()
         return res != None
-        
+
     def send_configuration_message(self, user_id):
         self.bot.send_message(user_id, "Configura il tuo account con il comando /start per usare il bot")
 
