@@ -22,6 +22,9 @@ class Bot:
     __course = ""
     __section = ""
     __key = b""      # used to crypt and decrypt passwords
+    LOG_FILE = "log.txt"
+    NEWS_LOG_FILE = "log_newsletter.txt"
+    EXCEPTION_LOG_FILE = "exceptions.txt"
 
     def __init__(self):
         # create bot
@@ -107,14 +110,14 @@ class Bot:
 
         if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
             self.bot.send_message(message.chat.id, "Errore nella configurazione nell'account. Per riprovare esegui il comando /start\n In caso di errore persistente contattta gli admin (/credits)")
-            with open("log.txt", "a") as f:
-                f.write(f"[{message.chat.id}] Errore nella configurazione\n")
+            with open(self.LOG_FILE, "a") as f:
+                f.write(f"[{str(datetime.today())[:-7]}] [{message.chat.id}] Errore nella configurazione\n")
             return
 
         if(res == self.register.WRONG_PSW):
             self.bot.send_message(message.chat.id, "Account non configurato: credenziali errate.\nPer riprovare esegui il comando /start")
-            with open("log.txt", "a") as f:
-                f.write(f"[{message.chat.id}] Credenziali errate\n")
+            with open(self.LOG_FILE, "a") as f:
+                f.write(f"[{str(datetime.today())[:-7]}] [{message.chat.id}] Credenziali errate\n")
             return
 
         psw = self.encrypt_message(self.__key, psw)
@@ -139,14 +142,14 @@ class Bot:
 
             self.db.query('UPDATE users_newsletter SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
             self.db.query('UPDATE users_login SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
-            with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] Info updated\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] Info updated\n")
 
         else:
 
             self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
-            with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] User registered\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] User registered\n")
 
         # create the key of the course if the course's key doesn't exists
         try:
@@ -235,8 +238,8 @@ class Bot:
 
         @self.bot.message_handler(commands=['start'])
         def send_welcome(message):
-            with open("log.txt", "a") as log:
-                log.write(f"[{message.from_user.id}] Started the bot, choosing course...\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{message.from_user.id}] Started the bot, choosing course...\n")
 
             self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard())
 
@@ -250,8 +253,8 @@ class Bot:
                 user_id = call.message.chat.id
                 self.set_section(call.data)
 
-                with open("log.txt", "a") as log:
-                    log.write(f"[{user_id}] Course: {self.__course} - {self.__section}\n")
+                with open(self.LOG_FILE, "a") as log:
+                    log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] Course: {self.__course} - {self.__section}\n")
 
                 if self.there_is_a_user_configured_for(self.__course, self.__section):
 
@@ -270,8 +273,8 @@ class Bot:
             else:
                 self.set_course(call.data)
 
-                with open("log.txt", "a") as log:
-                    log.write(f"[{call.message.chat.id}] Choosing year and section...\n")
+                with open(self.LOG_FILE, "a") as log:
+                    log.write(f"[{str(datetime.today())[:-7]}] [{call.message.chat.id}] Choosing year and section...\n")
 
                 self.bot.send_message(call.message.chat.id, "Seleziona anno e sezione", reply_markup=self.create_section_keyboard())
 
@@ -288,8 +291,8 @@ class Bot:
 
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
-            with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] /day, {user_course} - {user_section}\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /day, {user_course} - {user_section}\n")
 
             today_lessons = self.day[user_course][user_section]
             if today_lessons == []:
@@ -309,8 +312,8 @@ class Bot:
 
             user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
-            with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] /week, {user_course} - {user_section}\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /week, {user_course} - {user_section}\n")
 
             week_lessons = self.oldDB[user_course][user_section]
             if week_lessons == []:
@@ -324,8 +327,8 @@ class Bot:
         def echo_news(message):
             user_id = message.from_user.id
 
-            with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] /news\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /news\n")
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
@@ -340,8 +343,8 @@ class Bot:
         def unews(message):
             user_id = message.from_user.id
 
-            with open("log.txt", "a") as log:
-                log.write(f"[{user_id}] /unews\n")
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /unews\n")
 
             if not self.is_user_registered(user_id):
                 self.send_configuration_message(user_id)
@@ -368,7 +371,7 @@ class Bot:
             print(e, end="")
             print(", restarting the function")
 
-            with open("log.txt", "a") as log:
+            with open(self.EXCEPTION_LOG_FILE, "a") as log:
                 log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                 log.write( str(e.with_traceback(None)) + "\n")
 
@@ -392,7 +395,7 @@ class Bot:
         for s in t_sections:
             sections.append(s[0])
 
-        f = open("log_newsletter.txt", "a")
+        f = open(self.NEWS_LOG_FILE, "a")
 
         # per ogni corso, primo e secondo anno, sezioni A e B
         for i in range(len(courses)):
@@ -491,7 +494,7 @@ class Bot:
 
             except telebot.apihelper.ApiTelegramException as e:
 
-                with open("log.txt", "a") as f:
+                with open(self.EXCEPTION_LOG_FILE, "a") as f:
                     f.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                     f.write(str(e.with_traceback(None)) + f" ({id})\n")
                     f.flush()
@@ -527,7 +530,13 @@ class Bot:
 
     def delete_msg(self, message):
         sleep(10)
-        self.bot.delete_message(message.chat.id, message.message_id)
+        try:
+            self.bot.delete_message(message.chat.id, message.message_id)
+        except Exception as e:
+            with open(self.EXCEPTION_LOG_FILE, "a") as log:
+                log.write( str(e) + f" ({message.chat.id})\n" )
+                log.flush()
+
 
     def encrypt_message(self, key, message):
         iv = get_random_bytes(AES.block_size)
