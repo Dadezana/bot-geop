@@ -59,9 +59,9 @@ class Bot:
             courses = []
             sections = []
 
+        # create the key of the course if the course's key doesn't exists
         for self.__course in courses:
             for self.__section in sections:
-                # create the key of the course if the course's key doesn't exists
                 try:
                     temp = self.oldDB[self.__course]
                 except KeyError as ke:
@@ -82,8 +82,8 @@ class Bot:
                 self.oldDB[self.__course] = section_dict
                 self.day[self.__course] = section_dict_day
 
-                # update db of the new course
-                self.updateDB()
+        # update db of the new course
+        self.updateDB()
 
 
     def start(self):
