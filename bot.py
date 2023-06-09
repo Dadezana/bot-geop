@@ -1,6 +1,6 @@
 from datetime import date, timedelta, datetime
 import schedule
-import threading
+from threading import Thread
 import os
 import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -41,7 +41,7 @@ class Bot:
         # scheduling newsletter and updates of lessons
         schedule.every(30).minutes.do(self.updateDB)
         schedule.every().day.at("07:00").do(self.newsletter)
-        threading.Thread(target=self.handle_messages).start()
+        Thread(target=self.handle_messages).start()
 
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
@@ -101,7 +101,7 @@ class Bot:
     def get_password(self, message, email):
         psw = message.text
 
-        threading.Thread(target=self.delete_msg, args=[message]).start()
+        Thread(target=self.delete_msg, args=[message]).start()
 
         self.register.set_credential(email, psw)
 
@@ -178,9 +178,16 @@ class Bot:
 
         return
 
+    def get_registered_courses(self):
+        lines = []
+        res = self.db.query("SELECT course, section FROM users_login").fetchall()
+        for _class in res:
+            lines.append(f"{_class[0]}--{_class[1]}") # format course--section 
+        return lines
 
     def get_courses(self):
         lines = []
+
         with open("courses.txt", "r") as file:
             lines = file.readlines()
 
@@ -190,32 +197,34 @@ class Bot:
         return lines
 
 
-    # Tastiera inline per la configurazione dell'account
-    def create_courses_keyboard(self):
+    def create_courses_keyboard(self, pre_text="", course_must_exist = False): # text before default callback data
 
         keyboard = InlineKeyboardMarkup(row_width=2)
 
-        courses = self.get_courses()
+        if course_must_exist:
+            courses = self.get_registered_courses()
+        else:
+            courses = self.get_courses()
 
         for i in range(0, len(courses), 2):   # i add 2 buttons in one call, otherwise every button is displayed in a single row
             try:
                 keyboard.add(
-                    InlineKeyboardButton(f'{courses[i]}', callback_data=f'{courses[i]}'),
-                    InlineKeyboardButton(f'{courses[i+1]}', callback_data=f'{courses[i+1]}')
+                    InlineKeyboardButton(f'{courses[i]}', callback_data=f'{pre_text}{courses[i]}'),
+                    InlineKeyboardButton(f'{courses[i+1]}', callback_data=f'{pre_text}{courses[i+1]}')
                 )
             except IndexError as ie:
                 keyboard.add(
-                    InlineKeyboardButton(f'{courses[i]}', callback_data=f'{courses[i]}')
+                    InlineKeyboardButton(f'{courses[i]}', callback_data=f'{pre_text}{courses[i]}')
                 )
         return keyboard
 
-    def create_section_keyboard(self):
+    def create_section_keyboard(self, pre_text=""):
         keyboard = InlineKeyboardMarkup(row_width=2)
 
         for sec in ["A","B"]:
             keyboard.add(
-                InlineKeyboardButton("1° anno, sez. "+sec, callback_data="1"+sec),
-                InlineKeyboardButton("2° anno, sez. "+sec, callback_data="2"+sec)
+                InlineKeyboardButton("1° anno, sez. "+sec, callback_data=f"{pre_text}1"+sec),
+                InlineKeyboardButton("2° anno, sez. "+sec, callback_data=f"{pre_text}2"+sec)
             )
         return keyboard
 
@@ -269,6 +278,23 @@ class Bot:
 
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
+
+            elif "viewcourse--" in call.data:
+                user_id = call.message.chat.id
+                course = call.data.split("--")[1]
+                section = call.data.split("--")[2]
+
+                user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
+
+                with open(self.LOG_FILE, "a") as log:
+                    log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /show {course} {section}, {user_course} - {user_section}\n")
+
+                week_lessons = self.oldDB[course][section]
+                if week_lessons == []:
+                    self.bot.send_message(user_id, "Nessuna lezione programmata per i prossimi 7 giorni")
+                    return
+                
+                self.bot_print(week_lessons, user_id)
 
             else:
                 self.set_course(call.data)
@@ -365,6 +391,10 @@ class Bot:
 
             self.bot.send_message(user_id, credits_msg, parse_mode='Markdown')
 
+        @self.bot.message_handler(commands=['show'])
+        def other_class_lesson(message : telebot.types.Message):
+            self.bot.send_message(message.chat.id, "Di quale corso vuoi vedere l'orario?", reply_markup=self.create_courses_keyboard("viewcourse--", course_must_exist=True))
+
         try:
             self.bot.polling()
         except Exception as e:
@@ -429,10 +459,12 @@ class Bot:
         # self.db.connect()
 
         for course in self.oldDB.keys():
-            for section in self.oldDB[course]:
+            for section in self.oldDB[course].keys():
 
                 res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=?", [course, section]).fetchone()
                 if res == None: continue
+
+                # print(f"[+] Gathering {course} - {section} lessons...")
 
                 email, psw = res[0], res[1]
                 psw = self.decrypt_message(self.__key, psw)

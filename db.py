@@ -30,7 +30,7 @@ class DB:
         if "INSERT" in query.upper() or "UPDATE" in query.upper():
             self.conn.commit()
 
-        self.close()
+        # self.close()
         return self.res    # result of the query
 
     def close(self):
