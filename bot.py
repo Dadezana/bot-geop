@@ -136,20 +136,10 @@ class Bot:
                     (user_id, email, psw, self.__course, self.__section)
                 )
 
-        # if user does not exists in the "user_newsletter" table then insert it
-        # update their course info otherwise
-        if self.user_already_exists_in('users_newsletter', user_id):
 
-            self.db.query('UPDATE users_newsletter SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
-            self.db.query('UPDATE users_login SET course=?, section=? WHERE id=?;', [self.__course, self.__section, user_id])
-            with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] Info updated\n")
-
-        else:
-
-            self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
-            with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] User registered\n")
+        self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
+        with open(self.LOG_FILE, "a") as log:
+            log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] User registered\n")
 
         # create the key of the course if the course's key doesn't exists
         try:
@@ -272,9 +262,10 @@ class Bot:
 
                     return
 
-                # user has already configured his credential. He just wants to switch course
-                if self.user_already_exists_in('users_login', call.message.chat.id):
-                    self.save_user_info(user_id, login_credentials=False)               # credentials in users_login are updated if necessary
+                # user has already configured his account
+                if self.user_already_exists_in('users_newsletter', user_id):
+                    self.bot.send_message(user_id, 'Account già configurato. In caso di problemi o informazioni contattare lo sviluppatore (/credits)')
+                    return
 
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
@@ -405,7 +396,7 @@ class Bot:
                 log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                 log.write( str(e.with_traceback(None)) + "\n")
 
-            sleep(5)
+            sleep(2)
             self.handle_messages()
             return
 
@@ -463,8 +454,6 @@ class Bot:
 
                 res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=?", [course, section]).fetchone()
                 if res == None: continue
-
-                # print(f"[+] Gathering {course} - {section} lessons...")
 
                 email, psw = res[0], res[1]
                 psw = self.decrypt_message(self.__key, psw)
