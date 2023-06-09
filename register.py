@@ -30,7 +30,7 @@ class Register:
     def requestGeop(self, start_date="", end_date=""):
         
         start_date, end_date = self.correct_dates(start_date, end_date)
-        lessons_url = f"/geopcfp2/json/fullcalendar_events_alunno.asp?Oggetto=idAlunno&idOggetto=2672&editable=false&z=1665853136739&start={start_date}&end={end_date}&_=1665853136261"
+        lessons_url = f"/geopcfp2/json/fullcalendar_events_alunno.asp?Oggetto=idAlunno&idOggetto=2578&editable=false&z=1665853136739&start={start_date}&end={end_date}&_=1665853136261"
 
         #* Login
         try:

@@ -36,7 +36,7 @@ class Bot:
         self.__key = os.environ["key"].encode()
 
         self.db = DB()
-        self.db.connect()
+        # self.db.connect()
 
         # scheduling newsletter and updates of lessons
         schedule.every(30).minutes.do(self.updateDB)
@@ -105,7 +105,7 @@ class Bot:
 
         self.register.set_credential(email, psw)
 
-        self.db.connect()
+        # self.db.connect()
         res = self.register.requestGeop()
 
         if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
@@ -382,7 +382,7 @@ class Bot:
 
     def newsletter(self):
 
-        self.db.connect()
+        # self.db.connect()
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
         t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
@@ -426,7 +426,7 @@ class Bot:
 
     def updateDB(self, just_today=False):
 
-        self.db.connect()
+        # self.db.connect()
 
         for course in self.oldDB.keys():
             for section in self.oldDB[course]:
@@ -510,7 +510,7 @@ class Bot:
 
 
     def there_is_a_user_configured_for(self, course, section):
-        self.db.connect()
+        # self.db.connect()
         res = self.db.query("SELECT * FROM users_login WHERE course=? and section=?;", [course,section]).fetchone()
 
         # if there isn't an account configured for that course, ask for the credentials
@@ -521,7 +521,7 @@ class Bot:
         return True
 
     def is_user_registered(self, user_id):
-        self.db.connect()
+        # self.db.connect()
         res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id]).fetchone()
         return res != None
 
