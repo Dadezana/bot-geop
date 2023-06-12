@@ -240,6 +240,11 @@ class Bot:
             with open(self.LOG_FILE, "a") as log:
                 log.write(f"[{str(datetime.today())[:-7]}] [{message.from_user.id}] Started the bot, choosing course...\n")
 
+            # user has already configured his account
+            if self.user_already_exists_in('users_newsletter', message.from_user.id):
+                self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi  contattare lo sviluppatore (/credits)')
+                return
+            
             self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard())
 
 
