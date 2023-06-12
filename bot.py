@@ -242,7 +242,7 @@ class Bot:
 
             # user has already configured his account
             if self.user_already_exists_in('users_newsletter', message.from_user.id):
-                self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi  contattare lo sviluppatore (/credits)')
+                self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
                 return
             
             self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard())
@@ -253,8 +253,13 @@ class Bot:
 
             if call.data == "1A" or  call.data == "1B" or call.data == "2A" or call.data == "2B":
 
-
                 user_id = call.message.chat.id
+
+                # user has already configured his account
+                if self.user_already_exists_in('users_newsletter', user_id):
+                    self.bot.send_message(user_id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    return
+
                 self.set_section(call.data)
 
                 with open(self.LOG_FILE, "a") as log:
@@ -265,11 +270,6 @@ class Bot:
                     self.save_user_info(user_id, login_credentials=False)
                     self.bot.send_message(user_id, "Account configurato!\nPer ricevere una notifica ogni giorno alle 7 esegui il comando /news")
 
-                    return
-
-                # user has already configured his account
-                if self.user_already_exists_in('users_newsletter', user_id):
-                    self.bot.send_message(user_id, 'Account già configurato. In caso di problemi o informazioni contattare lo sviluppatore (/credits)')
                     return
 
                 self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
