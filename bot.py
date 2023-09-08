@@ -466,11 +466,17 @@ class Bot:
 
                 if not just_today:
                     newDB = self.register.requestGeop()
-                    self.oldDB[course][section] = newDB
+                    if "dict" in str(type(newDB)):              # avoid writing an integer and erase the oldDB
+                        self.oldDB[course][section] = newDB
 
                 res = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
                 if res == self.register.ERROR or res == self.register.CONNECTION_ERROR:
-                    res = ""
+                    return
+                
+                if res == self.register.WRONG_PSW:                  # log written here instead of register.py, so we can have info about the course
+                    with open("exceptions.txt", "a") as log:
+                        log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                        log.write(f"Wrong password for course {course}")
 
                 self.day[course][section] = res
 

@@ -1,5 +1,5 @@
 from requests import Session, ConnectionError
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from termcolor import colored
 import calendar
 from utils import *
@@ -46,12 +46,10 @@ class Register:
                     res = self.session.get(url)
 
                 except ConnectionError as e:
-                    #// print(colored("Failed to connect. Check your internet connection", "red"))
                     if(attempt == MAX_ATTEMPTS-1):
                         return self.CONNECTION_ERROR
 
                 except Exception as e:
-                    #// print(colored(e, "red"))
                     if(attempt == MAX_ATTEMPTS-1):
                         return self.ERROR
                     continue
@@ -61,13 +59,21 @@ class Register:
                     
         except ConnectionError as e:
             print(colored("Failed to connect. Check your internet connection", "red"))
+
+            with open("exceptions.txt", "a") as log:
+                log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                log.write("Failed to connect. Cannot fetch register.")
+
             return self.CONNECTION_ERROR
-        except:
+        
+        except Exception as e:
             print(colored("Something went wrong", "red"))
 
+            with open("exceptions.txt", "a") as log:
+                log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                log.write(e.with_traceback(None))
+
             return self.ERROR
-            # cookies = session.cookies.get_dict()
-            # write_to_file("cookies.json", cookies)
 
     # checks if all dates are set
     def correct_dates(self, start_date, end_date):
