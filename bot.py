@@ -20,7 +20,8 @@ class Bot:
     register = None
     db = None
     __course = ""
-    __section = ""
+    __year = ""
+    __location = ""
     __key = b""      # used to crypt and decrypt passwords
     LOG_FILE = "log.txt"
     NEWS_LOG_FILE = "log_newsletter.txt"
@@ -36,7 +37,7 @@ class Bot:
         self.__key = os.environ["key"].encode()
 
         self.db = DB()
-        # self.db.connect()
+        
 
         # scheduling newsletter and updates of lessons
         schedule.every(30).minutes.do(self.updateDB)
@@ -45,42 +46,59 @@ class Bot:
 
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
-        t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
+        t_years = self.db.query("SELECT year FROM users_login;").fetchall()
+        t_locations = self.db.query("SELECT location FROM users_login;").fetchall()
 
         courses = []
         for c in t_courses:
             courses.append(c[0])
 
-        sections = []
-        for s in t_sections:
-            sections.append(s[0])
+        years = []
+        for y in t_years:
+            years.append(y[0])
+
+        locations = []
+        for l in t_locations:
+            locations.append(l[0])
 
         if len(courses) == 0:
             courses = []
-            sections = []
+            years = []
+            locations = []
 
         # create the key of the course if the course's key doesn't exists
         for self.__course in courses:
-            for self.__section in sections:
-                try:
-                    temp = self.oldDB[self.__course]
-                except KeyError as ke:
-                    self.oldDB[self.__course] = {}
+            for self.__year in years:
+                for self.__location in locations:
 
-                try:
-                    temp = self.day[self.__course]
-                except KeyError as ke:
-                    self.day[self.__course] = {}
+                    try:
+                        temp = self.oldDB[self.__course]
+                    except KeyError as ke:
+                        self.oldDB[self.__course] = {}
+                    try:
+                        temp = self.day[self.__course]
+                    except KeyError as ke:
+                        self.day[self.__course] = {}
 
 
-                section_dict = self.oldDB[self.__course]
-                section_dict_day = self.day[self.__course]
+                    year_dict = self.oldDB[self.__course]
+                    year_dict_day = self.day[self.__course]
 
-                section_dict[self.__section] = []
-                section_dict_day[self.__section] = []
+                    year_dict[self.__year] = {}
+                    year_dict_day[self.__year] = {}
 
-                self.oldDB[self.__course] = section_dict
-                self.day[self.__course] = section_dict_day
+                    location_dict = self.oldDB[self.__course][self.__year]
+                    location_dict_day = self.day[self.__course][self.__year]
+
+                    location_dict[self.__location] = []
+                    location_dict_day[self.__location] = []
+
+                    self.oldDB[self.__course] = year_dict
+                    self.day[self.__course] = year_dict_day
+                    
+                    self.oldDB[self.__course][self.__year] = location_dict
+                    self.day[self.__course][self.__year] = location_dict_day
+
 
         # update db of the new course
         self.updateDB()
@@ -105,7 +123,7 @@ class Bot:
 
         self.register.set_credential(email, psw)
 
-        # self.db.connect()
+        
         res = self.register.requestGeop()
 
         if (res == self.register.CONNECTION_ERROR) or (res == self.register.ERROR):
@@ -132,16 +150,16 @@ class Bot:
             # if user does not already exists in the db then insert it
             if not self.user_already_exists_in('users_login', user_id):
                 self.db.query(
-                    'INSERT INTO users_login VALUES (?, ?, ?, ?, ?);',
-                    (user_id, email, psw, self.__course, self.__section)
+                    'INSERT INTO users_login VALUES (?, ?, ?, ?, ?, ?);',
+                    (user_id, email, psw, self.__course, self.__year, self.__location)
                 )
 
 
-        self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?);', [user_id, self.__course, self.__section, False])
+        self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?, ?);', [user_id, self.__course, self.__year, self.__location, False])
         with open(self.LOG_FILE, "a") as log:
             log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] User registered\n")
 
-        # create the key of the course if the course's key doesn't exists
+        #* create the key of the course if the course's key doesn't exists
         try:
             temp = self.oldDB[self.__course]
         except KeyError as ke:
@@ -152,27 +170,35 @@ class Bot:
         except KeyError as ke:
             self.day[self.__course] = {}
 
+        year_dict = self.oldDB[self.__course]
+        year_dict_day = self.day[self.__course]
 
-        section_dict = self.oldDB[self.__course]
-        section_dict_day = self.day[self.__course]
+        year_dict[self.__year] = {}
+        year_dict_day[self.__year] = {}
 
-        section_dict[self.__section] = {}
-        section_dict_day[self.__section] = {}
+        location_dict = self.oldDB[self.__course][self.__year]
+        location_dict_day = self.day[self.__course][self.__year]
 
-        self.oldDB[self.__course] = section_dict
-        self.day[self.__course] = section_dict_day
+        location_dict[self.__location] = []
+        location_dict_day[self.__location] = []
 
-        # update db of the new course
-        self.day[self.__course][self.__section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
-        self.oldDB[self.__course][self.__section] = self.register.requestGeop()
+        self.oldDB[self.__course] = year_dict
+        self.day[self.__course] = year_dict_day
+        
+        self.oldDB[self.__course][self.__year] = location_dict
+        self.day[self.__course][self.__year] = location_dict_day
+
+        #*  update db of the new course
+        self.day[self.__course][self.__year][self.__location] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+        self.oldDB[self.__course][self.__year][self.__location] = self.register.requestGeop()
 
         return
 
     def get_registered_courses(self):
         lines = []
-        res = self.db.query("SELECT course, section FROM users_login").fetchall()
+        res = self.db.query("SELECT course, year, location FROM users_login ORDER BY course").fetchall()
         for _class in res:
-            lines.append(f"{_class[0]}--{_class[1]}") # format course--section 
+            lines.append(f"{_class[0]}, {_class[1]}° anno - {_class[2]}") # format: course, year - location
         return lines
 
     def get_courses(self):
@@ -185,13 +211,24 @@ class Bot:
                 lines[i] = lines[i].replace('\n', '')
 
         return lines
+    
+    def get_locations(self):
+        lines = []
+
+        with open("locations.txt", "r") as file:
+            lines = file.readlines()
+
+            for i in range(len(lines)):
+                lines[i] = lines[i].replace('\n', '')
+
+        return lines
 
 
     def create_courses_keyboard(self, pre_text="", course_must_exist = False): # text before default callback data
 
         keyboard = InlineKeyboardMarkup(row_width=2)
 
-        if course_must_exist:
+        if course_must_exist:                       # for /show command
             courses = self.get_registered_courses()
         else:
             courses = self.get_courses()
@@ -208,23 +245,36 @@ class Bot:
                 )
         return keyboard
 
-    def create_section_keyboard(self, pre_text=""):
+    def create_locations_keyboard(self, pre_text=""):
         keyboard = InlineKeyboardMarkup(row_width=2)
 
-        for sec in ["A","B"]:
-            keyboard.add(
-                InlineKeyboardButton("1° anno, sez. "+sec, callback_data=f"{pre_text}1"+sec),
-                InlineKeyboardButton("2° anno, sez. "+sec, callback_data=f"{pre_text}2"+sec)
+        locations = self.get_locations()
+        try:
+            for i in range(0, len(locations), 2):
+                keyboard.add(
+                    InlineKeyboardButton(f"{locations[i]}", callback_data=f"{pre_text}{locations[i]}"),
+                    InlineKeyboardButton(f"{locations[i+1]}", callback_data=f"{pre_text}{locations[i+1]}")
+                )
+        except IndexError as ie:
+                keyboard.add(
+                    InlineKeyboardButton(f'{locations[i]}', callback_data=f'{pre_text}{locations[i]}')
+                )
+        return keyboard
+    
+    def create_year_keyboard(self, pre_text=""):
+        keyboard = InlineKeyboardMarkup(row_width=2)
+        keyboard.add(
+                InlineKeyboardButton("1° anno", callback_data=f"{pre_text}1"),
+                InlineKeyboardButton("2° anno", callback_data=f"{pre_text}2")
             )
         return keyboard
-
 
     def handle_messages(self):
 
         @self.bot.message_handler(commands=['help'])
         def handle_help(message):
             help_msg = \
-            "/start configura il tuo account" + \
+            "/start configura il tuo account\n" + \
             "/help Visualizza questa guida\n" + \
             "/day  Lezione più recente\n" + \
             "/week  Lezione da oggi + 7gg\n" + \
@@ -245,13 +295,13 @@ class Bot:
                 self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
                 return
             
-            self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard())
+            self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard("course--"))
 
 
         @self.bot.callback_query_handler(func=lambda call: True)
         def callback_handler(call):
 
-            if call.data == "1A" or  call.data == "1B" or call.data == "2A" or call.data == "2B":
+            if call.data == "1" or  call.data == "2":
 
                 user_id = call.message.chat.id
 
@@ -260,12 +310,12 @@ class Bot:
                     self.bot.send_message(user_id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
                     return
 
-                self.set_section(call.data)
+                self.set_year(call.data)
 
                 with open(self.LOG_FILE, "a") as log:
-                    log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] Course: {self.__course} - {self.__section}\n")
+                    log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] Course: {self.__course}, {self.__year} - {self.__location}\n")
 
-                if self.there_is_a_user_configured_for(self.__course, self.__section):
+                if self.there_is_a_user_configured_for(self.__course, self.__year, self.__location):
 
                     self.save_user_info(user_id, login_credentials=False)
                     self.bot.send_message(user_id, "Account configurato!\nPer ricevere una notifica ogni giorno alle 7 esegui il comando /news")
@@ -277,28 +327,37 @@ class Bot:
 
             elif "viewcourse--" in call.data:
                 user_id = call.message.chat.id
-                course = call.data.split("--")[1]
-                section = call.data.split("--")[2]
+                course = call.data.split("--")[1].split(", ")[0]
+                year = call.data.split(", ")[1].split("°")[0]
+                location = call.data.split(" - ")[1]
 
-                user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
+                user_course, user_year, user_location = self.db.query("SELECT course, year, location FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
                 with open(self.LOG_FILE, "a") as log:
-                    log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /show {course} {section}, {user_course} - {user_section}\n")
+                    log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /show ({course}, {year} - {location}), ({user_course}, {user_year} - {user_location})\n")
 
-                week_lessons = self.oldDB[course][section]
+                week_lessons = self.oldDB[course][year][location]
                 if week_lessons == []:
                     self.bot.send_message(user_id, "Nessuna lezione programmata per i prossimi 7 giorni")
                     return
                 
                 self.bot_print(week_lessons, user_id)
 
-            else:
-                self.set_course(call.data)
+            elif "location--" in call.data:
+                self.set_location(call.data.split("location--")[1])
 
                 with open(self.LOG_FILE, "a") as log:
-                    log.write(f"[{str(datetime.today())[:-7]}] [{call.message.chat.id}] Choosing year and section...\n")
+                    log.write(f"[{str(datetime.today())[:-7]}] [{call.message.chat.id}] Choosing year...\n")
 
-                self.bot.send_message(call.message.chat.id, "Seleziona anno e sezione", reply_markup=self.create_section_keyboard())
+                self.bot.send_message(call.message.chat.id, "Seleziona l'anno", reply_markup=self.create_year_keyboard())
+
+            elif "course--" in call.data:
+                self.set_course(call.data.split("course--")[1])
+
+                with open(self.LOG_FILE, "a") as log:
+                    log.write(f"[{str(datetime.today())[:-7]}] [{call.message.chat.id}] Choosing location...\n")
+
+                self.bot.send_message(call.message.chat.id, "Seleziona la sede", reply_markup=self.create_locations_keyboard("location--"))
 
             return
 
@@ -311,12 +370,12 @@ class Bot:
                 self.send_configuration_message(user_id)
                 return
 
-            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
+            user_course, user_year, user_location = self.db.query("SELECT course, year, location FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
             with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /day, {user_course} - {user_section}\n")
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /day, {user_course}, {user_year} - {user_course}\n")
 
-            today_lessons = self.day[user_course][user_section]
+            today_lessons = self.day[user_course][user_year][user_location]
             if today_lessons == []:
                 self.bot.send_message(user_id, "Nessuna lezione programmata per oggi")
                 return
@@ -332,12 +391,12 @@ class Bot:
                 self.send_configuration_message(user_id)
                 return
 
-            user_course, user_section = self.db.query("SELECT course, section FROM users_newsletter WHERE id=?", [user_id]).fetchone()
+            user_course, user_year, user_location = self.db.query("SELECT course, year, location FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
             with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /week, {user_course} - {user_section}\n")
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /week, {user_course}, {user_year} - {user_location}\n")
 
-            week_lessons = self.oldDB[user_course][user_section]
+            week_lessons = self.oldDB[user_course][user_year][user_location]
             if week_lessons == []:
                 self.bot.send_message(user_id, "Nessuna lezione programmata per i prossimi 7 giorni")
                 return
@@ -408,36 +467,40 @@ class Bot:
 
     def newsletter(self):
 
-        # self.db.connect()
-
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
-        t_sections = self.db.query("SELECT section FROM users_login;").fetchall()
+        t_years = self.db.query("SELECT year FROM users_login;").fetchall()
+        t_locations = self.db.query("SELECT location FROM users_login;").fetchall()
 
         courses = []
         for c in t_courses:
             courses.append(c[0])
 
-        sections = []
-        for s in t_sections:
-            sections.append(s[0])
+        years = []
+        for y in t_years:
+            years.append(y[0])
+
+        locations = []
+        for l in t_locations:
+            locations.append(l[0])
 
         f = open(self.NEWS_LOG_FILE, "a")
 
-        # per ogni corso, primo e secondo anno, sezioni A e B
+        # per ogni corso, primo e secondo anno, tutte le sezioni
         for i in range(len(courses)):
 
             course = courses[i]
-            section = sections[i]
+            year = years[i]
+            location = locations[i]
 
-            t_user_id = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND section=?;", [course, section]).fetchall()
+            t_user_id = self.db.query("SELECT id FROM users_newsletter WHERE course=? AND can_send_news=1 AND year=? AND location=?;", [course, year, location]).fetchall()
             users_id = []
             for c in t_user_id:
                 users_id.append(c[0])
 
             for user_id in users_id:
-                self.bot_print(self.day[course][section], int(user_id))
+                self.bot_print(self.day[course][year][location], int(user_id))
 
-            if self.day[course][section]:
+            if self.day[course][year][location]:
                 f.write(f"[ {date.today()} ] Sent news to {course} course\n")
 
         f.close()
@@ -452,33 +515,32 @@ class Bot:
 
     def updateDB(self, just_today=False):
 
-        # self.db.connect()
-
         for course in self.oldDB.keys():
-            for section in self.oldDB[course].keys():
+            for year in self.oldDB[course].keys():
+                for location in self.oldDB[course][year].keys():
 
-                res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and section=?", [course, section]).fetchone()
-                if res == None: continue
+                    res = self.db.query("SELECT email, psw FROM users_login WHERE course=? and year=? AND location=?", [course, year, location]).fetchone()
+                    if res == None: continue
 
-                email, psw = res[0], res[1]
-                psw = self.decrypt_message(self.__key, psw)
-                self.register.set_credential(email, psw)
+                    email, psw = res[0], res[1]
+                    psw = self.decrypt_message(self.__key, psw)
+                    self.register.set_credential(email, psw)
 
-                if not just_today:
-                    newDB = self.register.requestGeop()
-                    if "list" in str(type(newDB)):              # avoid writing an integer and erase the oldDB
-                        self.oldDB[course][section] = newDB
+                    if not just_today:
+                        newDB = self.register.requestGeop()
+                        if "list" in str(type(newDB)):              # avoid writing an integer and erase the oldDB
+                            self.oldDB[course][year][location] = newDB
 
-                res = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
-                if res == self.register.ERROR or res == self.register.CONNECTION_ERROR:
-                    return
-                
-                if res == self.register.WRONG_PSW:                  # log written here instead of register.py, so we can have info about the course
-                    with open("exceptions.txt", "a") as log:
-                        log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
-                        log.write(f"Wrong password for course {course}")
+                    res = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+                    if res == self.register.ERROR or res == self.register.CONNECTION_ERROR:
+                        return
+                    
+                    if res == self.register.WRONG_PSW:                  # log written here instead of register.py, so we can have info about the course
+                        with open("exceptions.txt", "a") as log:
+                            log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                            log.write(f"Wrong password for course {course}")
 
-                self.day[course][section] = res
+                    self.day[course][year][location] = res
 
 
 
@@ -537,23 +599,25 @@ class Bot:
     def set_course(self, course):
         self.__course = course
 
-    def set_section(self, section):
-        self.__section = section
+    def set_year(self, year):
+        self.__year = year
+
+    def set_location(self, location):
+        self.__location = location
 
 
-    def there_is_a_user_configured_for(self, course, section):
-        # self.db.connect()
-        res = self.db.query("SELECT * FROM users_login WHERE course=? and section=?;", [course,section]).fetchone()
+    def there_is_a_user_configured_for(self, course, year, location):
+        
+        res = self.db.query("SELECT * FROM users_login WHERE course=? and year=? and location=?;", [course, year, location]).fetchone()
 
         # if there isn't an account configured for that course, ask for the credentials
         if res == None:
             return False
 
-
         return True
 
     def is_user_registered(self, user_id):
-        # self.db.connect()
+        
         res = self.db.query("SELECT * FROM users_newsletter WHERE id=?", [user_id]).fetchone()
         return res != None
 
