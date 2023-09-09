@@ -466,7 +466,7 @@ class Bot:
 
                 if not just_today:
                     newDB = self.register.requestGeop()
-                    if "dict" in str(type(newDB)):              # avoid writing an integer and erase the oldDB
+                    if "list" in str(type(newDB)):              # avoid writing an integer and erase the oldDB
                         self.oldDB[course][section] = newDB
 
                 res = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
