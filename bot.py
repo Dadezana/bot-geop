@@ -305,6 +305,10 @@ class Bot:
 
             if call.data == "1" or  call.data == "2":
 
+                if self.user_already_exists_in('users_newsletter', call.message.chat.id):
+                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    return
+
                 user_id = call.message.chat.id
 
                 # user has already configured his account
@@ -346,6 +350,11 @@ class Bot:
                 self.bot_print(week_lessons, user_id)
 
             elif "location--" in call.data:
+
+                if self.user_already_exists_in('users_newsletter', call.message.chat.id):
+                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    return
+                
                 self.set_location(call.data.split("location--")[1])
 
                 with open(self.LOG_FILE, "a") as log:
@@ -354,6 +363,11 @@ class Bot:
                 self.bot.send_message(call.message.chat.id, "Seleziona l'anno", reply_markup=self.create_year_keyboard())
 
             elif "course--" in call.data:
+
+                if self.user_already_exists_in('users_newsletter', call.message.chat.id):
+                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    return
+
                 self.set_course(call.data.split("course--")[1])
 
                 with open(self.LOG_FILE, "a") as log:
