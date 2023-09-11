@@ -288,13 +288,15 @@ class Bot:
         @self.bot.message_handler(commands=['start'])
         def send_welcome(message):
             with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{message.from_user.id}] Started the bot, choosing course...\n")
+                log.write(f"[{str(datetime.today())[:-7]}] [{message.from_user.id}] Started the bot\n")
 
             # user has already configured his account
             if self.user_already_exists_in('users_newsletter', message.from_user.id):
                 self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
                 return
             
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{message.from_user.id}] Choosing course...\n")
             self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard("course--"))
 
 
@@ -373,7 +375,7 @@ class Bot:
             user_course, user_year, user_location = self.db.query("SELECT course, year, location FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
             with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /day, {user_course}, {user_year} - {user_course}\n")
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /day, {user_course}, {user_year}° anno - {user_location}\n")
 
             today_lessons = self.day[user_course][user_year][user_location]
             if today_lessons == []:
@@ -394,7 +396,7 @@ class Bot:
             user_course, user_year, user_location = self.db.query("SELECT course, year, location FROM users_newsletter WHERE id=?", [user_id]).fetchone()
 
             with open(self.LOG_FILE, "a") as log:
-                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /week, {user_course}, {user_year} - {user_location}\n")
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /week, {user_course}, {user_year}° anno - {user_location}\n")
 
             week_lessons = self.oldDB[user_course][user_year][user_location]
             if week_lessons == []:
@@ -437,6 +439,10 @@ class Bot:
         @self.bot.message_handler(commands=['credits'])
         def show_credits(message):
             user_id = message.from_user.id
+
+            user_course, user_year, user_location = self.db.query("SELECT course, year, location FROM users_newsletter WHERE id=?", [user_id]).fetchone()
+            with open(self.LOG_FILE, "a") as log:
+                log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] /credits, {user_course}, {user_year}° anno - {user_location}\n")
 
             credits_msg = f"\
             Creato e mantenuto da {os.environ['main_developer']}\
@@ -536,7 +542,7 @@ class Bot:
                         return
                     
                     if res == self.register.WRONG_PSW:                  # log written here instead of register.py, so we can have info about the course
-                        with open("exceptions.txt", "a") as log:
+                        with open(self.EXCEPTION_LOG_FILE, "a") as log:
                             log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                             log.write(f"Wrong password for course {course}")
 
