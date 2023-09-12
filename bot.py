@@ -230,8 +230,14 @@ class Bot:
 
         if course_must_exist:                       # for /show command
             courses = self.get_registered_courses()
+            for course in courses:
+                keyboard.add(
+                    InlineKeyboardButton(f"{course}",  callback_data=f'{pre_text}{course}')
+                )
+            return keyboard
+        
         else:
-            courses = self.get_courses()
+            courses = self.get_courses()            
 
         for i in range(0, len(courses), 2):   # i add 2 buttons in one call, otherwise every button is displayed in a single row
             try:
