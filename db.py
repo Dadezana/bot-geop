@@ -9,7 +9,7 @@ class DB:
         - psw
         - course
         - year
-        - location
+        - section
         of the user that logs into the register
         and a table of users to send automatic messages to
     """
@@ -22,8 +22,8 @@ class DB:
         self.conn = sqlite3.connect(self.db_name)
         self.cur = self.conn.cursor()
 
-        self.cur.execute("CREATE TABLE IF NOT EXISTS users_login(id, email, psw, course, year, location)")     # locations contains the name of the city
-        self.cur.execute("CREATE TABLE IF NOT EXISTS users_newsletter(id, course, year, location, can_send_news)")
+        self.cur.execute("CREATE TABLE IF NOT EXISTS users_login(id, email, psw, course, year, section)")     # locations contains the name of the city
+        self.cur.execute("CREATE TABLE IF NOT EXISTS users_newsletter(id, course, year, section, can_send_news)")
     
     def query(self, query, values=[]):
         self.connect()

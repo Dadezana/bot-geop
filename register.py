@@ -4,6 +4,7 @@ from termcolor import colored
 import calendar
 from utils import *
 
+EXCEPTION_LOG_FILE = "exceptions.txt"
 
 class Register:
     user = ""
@@ -16,7 +17,7 @@ class Register:
 
     site = "https://itsar.registrodiclasse.it"
 
-    def __init__(self, user, psw):
+    def __init__(self, user="", psw=""):
         self.set_credential(user, psw)
 
     
@@ -60,7 +61,7 @@ class Register:
         except ConnectionError as e:
             print(colored("Failed to connect. Check your internet connection", "red"))
 
-            with open("exceptions.txt", "a") as log:
+            with open(EXCEPTION_LOG_FILE, "a") as log:
                 log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                 log.write("Failed to connect. Cannot fetch register.")
 
@@ -69,7 +70,7 @@ class Register:
         except Exception as e:
             print(colored("Something went wrong", "red"))
 
-            with open("exceptions.txt", "a") as log:
+            with open(EXCEPTION_LOG_FILE, "a") as log:
                 log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                 log.write(e.with_traceback(None))
 
@@ -130,7 +131,7 @@ class Register:
         res = self.session.post(url, data=body)
 
         if res.status_code == 200:
-            if "Username e password non validi" in res.text:  # valid password, ready to save cookies
+            if "Username e password non validi" in res.text:
                 return False
             return True
         else:
