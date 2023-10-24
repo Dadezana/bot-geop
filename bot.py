@@ -66,42 +66,12 @@ class Bot:
             courses = []
             years = []
             sections = []
+            return
+        
+        # creating courses' keys
+        for i in range(len(courses)):
+            self.create_course_key(courses[i], years[i], sections[i])
 
-        # create the key of the course if the course's key doesn't exists
-        for self.__course in courses:
-            for self.__year in years:
-                for self.__section in sections:
-
-                    try:
-                        temp = self.oldDB[self.__course]
-                    except KeyError as ke:
-                        self.oldDB[self.__course] = {}
-                    try:
-                        temp = self.day[self.__course]
-                    except KeyError as ke:
-                        self.day[self.__course] = {}
-
-
-                    year_dict = self.oldDB[self.__course]
-                    year_dict_day = self.day[self.__course]
-
-                    year_dict[self.__year] = {}
-                    year_dict_day[self.__year] = {}
-
-                    section_dict = self.oldDB[self.__course][self.__year]
-                    section_dict_day = self.day[self.__course][self.__year]
-
-                    section_dict[self.__section] = []
-                    section_dict_day[self.__section] = []
-
-                    self.oldDB[self.__course] = year_dict
-                    self.day[self.__course] = year_dict_day
-                    
-                    self.oldDB[self.__course][self.__year] = section_dict
-                    self.day[self.__course][self.__year] = section_dict_day
-
-
-        # update db of the new course
         self.updateDB()
 
 
@@ -113,63 +83,32 @@ class Bot:
 
     def save_user_info(self, user_id : int):
 
-        
         email   = self.ids[user_id]["email"]
         psw     = self.ids[user_id]["psw"]
         course  = self.ids[user_id]["course"]
         section = self.ids[user_id]["section"]
         year    = self.ids[user_id]["year"]
 
-
         login_credentials = (not email == "")
 
         if login_credentials:
             # if user does not already exists in the db then insert it
             if not self.user_already_exists_in('users_login', user_id):
-                self.db.query(
-                    'INSERT INTO users_login VALUES (?, ?, ?, ?, ?, ?);',
-                    (user_id, email, psw, course, year, section)
-                )
+                self.db.query('INSERT INTO users_login VALUES (?, ?, ?, ?, ?, ?);', (user_id, email, psw, course, year, section))
+
+            self.create_course_key(course, year, section)
+            
+            #*  update db of the new course
+            self.register.set_credential(self.ids[user_id]["email"], self.decrypt_message(self.__key, self.ids[user_id]["psw"]))
+            self.day[course][year][section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
+            self.oldDB[course][year][section] = self.register.requestGeop()
+
 
         self.db.query('INSERT INTO users_newsletter VALUES (?, ?, ?, ?, ?);', [user_id, course, year, section, False])
         with open(LOG_FILE, "a") as log:
             log.write(f"[{str(datetime.today())[:-7]}] [{user_id}] User registered\n")
         
         self.bot.send_message(user_id, 'Account configurato con successo!\nPer ricevere una notifica ogni giorno alle 7 esegui il comando /news')
-
-        #* create the key of the course if the course's key doesn't exists
-        try:
-            temp = self.oldDB[course]
-        except KeyError as ke:
-            self.oldDB[course] = {}
-
-        try:
-            temp = self.day[course]
-        except KeyError as ke:
-            self.day[course] = {}
-
-        year_dict = self.oldDB[course]
-        year_dict_day = self.day[course]
-
-        year_dict[year] = {}
-        year_dict_day[year] = {}
-
-        section_dict = self.oldDB[course][year]
-        section_dict_day = self.day[course][year]
-
-        section_dict[section] = []
-        section_dict_day[section] = []
-
-        self.oldDB[course] = year_dict
-        self.day[course] = year_dict_day
-        
-        self.oldDB[course][year] = section_dict
-        self.day[course][year] = section_dict_day
-
-        #*  update db of the new course
-        self.register.set_credential(self.ids[user_id]["email"], self.decrypt_message(self.__key, self.ids[user_id]["psw"]))
-        self.day[course][year][section] = self.register.requestGeop(date.today(), date.today()+timedelta(days=1))
-        self.oldDB[course][year][section] = self.register.requestGeop()
 
         # remove user's key from dictionary
         self.ids.pop(user_id, None)
@@ -195,7 +134,6 @@ class Bot:
             "psw": "",
         }
         self.bot.reply_to(message, "Benvenuto! Per configurare il tuo account, scegli il tuo corso:", reply_markup=self.create_courses_keyboard("course--"))
-
 
 
     def handle_messages(self):
@@ -682,3 +620,22 @@ class Bot:
         cipher = AES.new(key, AES.MODE_CFB, iv)
         plaintext = cipher.decrypt(ciphertext[AES.block_size:]).decode('utf-8')
         return plaintext
+    
+    def create_course_key(self, course, year, section):
+        try:
+            temp = self.oldDB[course]
+        except KeyError as ke:
+            self.oldDB[course] = {}
+            self.day[course] = {}
+
+        try:
+            temp = self.oldDB[course][year]
+        except KeyError as ke:
+            self.oldDB[course][year] = {}
+            self.day[course][year] = {}
+
+        try:
+            temp = self.oldDB[course][year][section]
+        except KeyError as ke:
+            self.oldDB[course][year][section] = {}
+            self.day[course][year][section] = {}
