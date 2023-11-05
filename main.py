@@ -13,6 +13,7 @@ def main():
         bot.start()
     except KeyboardInterrupt:
         print(colored("[+] Bot terminated", "red"))
+        bot.exit = True
         exit(0)
     
 

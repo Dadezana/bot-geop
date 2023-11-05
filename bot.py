@@ -9,6 +9,7 @@ from time import sleep
 from db import DB
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
+from requests import post
 
 LOG_FILE = "log.txt"
 NEWS_LOG_FILE = "log_newsletter.txt"
@@ -31,6 +32,7 @@ class Bot:
     def __init__(self):
         # create bot
         self.token = os.environ['TOKEN']
+        self.exit = False
 
         self.register = Register("", "")
         self.bot = telebot.TeleBot(self.token)
@@ -43,8 +45,9 @@ class Bot:
         # scheduling newsletter and updates of lessons
         schedule.every(30).minutes.do(self.updateDB)
         schedule.every().day.at("07:00").do(self.newsletter)
-        Thread(target=self.handle_messages).start()
-
+        messages_thread = Thread(target=self.handle_messages)
+        messages_thread.start()
+        Thread(target=self.check_if_bot_down, args=(messages_thread,)).start()
 
         t_courses = self.db.query("SELECT course FROM users_login;").fetchall()
         t_years = self.db.query("SELECT year FROM users_login;").fetchall()
@@ -74,6 +77,22 @@ class Bot:
 
         self.updateDB()
 
+    def check_if_bot_down(self, thread : Thread):
+        while not self.exit:
+            sleep(5)
+            if not thread.is_alive() and not self.exit:
+                try:
+                    server = os.environ["notify_server"]
+                    page = os.environ["page"]
+                    post(f"http://{server}/{page}", "Bot is down restarting it")
+                except Exception as e:
+                    with open(EXCEPTION_LOG_FILE, "a") as log:
+                        log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                        log.write("Bot down. Cannot send notification: \n")
+                        log.write( str(e.with_traceback(None)) + "\n")
+
+                thread = Thread(target=self.handle_messages)
+                thread.start()
 
     def start(self):
         while True:
@@ -137,7 +156,7 @@ class Bot:
 
 
     def handle_messages(self):
-
+        
         @self.bot.callback_query_handler(func=lambda call: True)
         def callback_handler(call):
 
