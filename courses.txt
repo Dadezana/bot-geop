@@ -1,6 +1,5 @@
 Cyber Defense
 Cloud
-Cloud & Data
 Omnichannel
 Software Architect
 Big Data
