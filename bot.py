@@ -84,7 +84,7 @@ class Bot:
                 try:
                     server = os.environ["notify_server"]
                     page = os.environ["page"]
-                    post(f"http://{server}/{page}", "Bot is down restarting it")
+                    post(f"http://{server}/{page}", "Bot is down, restarting it")
                 except Exception as e:
                     with open(EXCEPTION_LOG_FILE, "a") as log:
                         log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
@@ -163,14 +163,14 @@ class Bot:
             if call.data == "1" or  call.data == "2":
 
                 if self.user_already_exists_in('users_newsletter', call.message.chat.id):
-                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare l\'amministratore (/credits)')
                     return
 
                 user_id = call.message.chat.id
 
                 # user has already configured his account
                 if self.user_already_exists_in('users_newsletter', user_id):
-                    self.bot.send_message(user_id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    self.bot.send_message(user_id, 'Account già configurato. In caso di problemi contattare l\'amministratore (/credits)')
                     return
 
                 self.ids[user_id]["year"] = call.data 
@@ -182,7 +182,7 @@ class Bot:
                     self.save_user_info(user_id)
                     return
 
-                self.bot.send_message(user_id, 'Nessun account configurato per questo corso, fornisci le seguenti informazioni:\n\nEmail:')
+                self.bot.send_message(user_id, 'Nessun account configurato per questo corso.\nFornisci le credenziali di accesso a Geop.\n\nEmail:')
                 self.bot.register_next_step_handler(call.message, self.get_email)
 
             elif "viewcourse--" in call.data:
@@ -207,7 +207,7 @@ class Bot:
                 
                 user_id = call.message.chat.id
                 if self.user_already_exists_in('users_newsletter', user_id):
-                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare l\'amministratore (/credits)')
                     return
                 
                 sec = call.data.split("section--")[1].strip()
@@ -221,7 +221,7 @@ class Bot:
             elif "course--" in call.data:
                 user_id = call.message.chat.id
                 if self.user_already_exists_in('users_newsletter', user_id):
-                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                    self.bot.send_message(call.message.chat.id, 'Account già configurato. In caso di problemi contattare l\'amministratore (/credits)')
                     return
 
                 course = call.data.split("course--")[1].strip()
@@ -235,17 +235,17 @@ class Bot:
             return
 
         @self.bot.message_handler(commands=['help'])
-        def handle_help(message):
+        def handle_help(message : telebot.types.Message):
             help_msg = \
-            "/start configura il tuo account\n" + \
-            "/help Visualizza questa guida\n" + \
-            "/day  Lezione più recente\n" + \
-            "/week  Lezione da oggi + 7gg\n" + \
-            "/news Notifica alle 7 sulla lezione del giorno\n" + \
-            "/unews Non verrà più ricevuto un messaggio sulla lezione del giorno\n" + \
-            "/credits Contatti, codice sorgente e info sviluppatori"
+            "*/start* \nConfigura il tuo account\n\n" + \
+            "*/day*  \nLezione di oggi\n\n" + \
+            "*/week*  \nLezione da oggi + 7gg\n\n" + \
+            "*/news* \nRicevi una notifica alle 7 sulla lezione del giorno\n\n" + \
+            "*/unews* \nNon verrà più ricevuta una notifica sulla lezione del giorno\n\n" + \
+            "*/credits* \nContatti, codice sorgente e info sviluppatori\n\n" + \
+            "*/show*     \n Visualizza orario di altre classi"
 
-            self.bot.reply_to(message, help_msg)
+            self.bot.send_message(message.from_user.id, help_msg, parse_mode='Markdown')
 
 
         @self.bot.message_handler(commands=['start'])
@@ -255,7 +255,7 @@ class Bot:
 
             # user has already configured his account
             if self.user_already_exists_in('users_newsletter', message.from_user.id):
-                self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi contattare lo sviluppatore (/credits)')
+                self.bot.send_message(message.from_user.id, 'Account già configurato. In caso di problemi contattare l\'amministratore (/credits)')
                 return
             
             Thread(target=self.register_user, args=(message,), name="UserRegistration").start()
@@ -436,7 +436,7 @@ class Bot:
                         return
                     
                     if res == self.register.WRONG_PSW:                  # log written here instead of register.py, so we can have info about the course
-                        with open(self.EXCEPTION_LOG_FILE, "a") as log:
+                        with open(EXCEPTION_LOG_FILE, "a") as log:
                             log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                             log.write(f"Wrong password for course {course}")
 
@@ -486,7 +486,7 @@ class Bot:
 
             except telebot.apihelper.ApiTelegramException as e:
 
-                with open(self.EXCEPTION_LOG_FILE, "a") as f:
+                with open(EXCEPTION_LOG_FILE, "a") as f:
                     f.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
                     f.write(str(e.with_traceback(None)) + f" ({id})\n")
                     f.flush()
