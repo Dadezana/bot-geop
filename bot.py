@@ -78,21 +78,44 @@ class Bot:
         self.updateDB()
 
     def check_if_bot_down(self, thread : Thread):
+        can_send_notify = False
         while not self.exit:
             sleep(5)
             if not thread.is_alive() and not self.exit:
                 try:
+                    f = open("notify.txt", "r")     # if the file exists, a notification will be sent to the desired server
+                    f.close()
+                    can_send_notify = True
+
+                except FileNotFoundError:
+                    can_send_notify = False
+                
+                thread = Thread(target=self.handle_messages)
+                thread.start()
+
+                with open(EXCEPTION_LOG_FILE, "a") as log:
+                    log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
+                    log.write("Bot down. Restarted it\n")
+
+                if not can_send_notify:
+                    continue
+
+                # send notification to the server
+                try:
                     server = os.environ["notify_server"]
-                    page = os.environ["page"]
-                    post(f"http://{server}/{page}", "Bot is down, restarting it")
+                    try:
+                        user, passwd = os.environ["notify_user"], os.environ["notify_passwd"]
+                    except Exception as e:
+                        user = passwd = ""
+
+                    post(f"{server}", "Bot is down, restarted", auth=(user, passwd))
                 except Exception as e:
                     with open(EXCEPTION_LOG_FILE, "a") as log:
                         log.write( f"# ---- {str(datetime.today())[:-7]} ---- #\n" )
-                        log.write("Bot down. Cannot send notification: \n")
+                        log.write("Bot down. Failed to send notification: \n")
                         log.write( str(e.with_traceback(None)) + "\n")
 
-                thread = Thread(target=self.handle_messages)
-                thread.start()
+                
 
     def start(self):
         while True:
